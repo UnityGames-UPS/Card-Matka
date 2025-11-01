@@ -1,0 +1,787 @@
+fileFormatVersion: 2
+guid: 467281cfc6f5d4652908d6344eac478e
+TextureImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 3
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 3
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 3
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_0
+      rect:
+        serializedVersion: 2
+        x: 30
+        y: 736
+        width: 81
+        height: 117
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d883eeb0605f14bf282d7789e4c489de
+      internalID: 1479915683
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_1
+      rect:
+        serializedVersion: 2
+        x: 162
+        y: 736
+        width: 84
+        height: 116
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9dbf2371af32c4da39ff521efae557c8
+      internalID: -832906929
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_2
+      rect:
+        serializedVersion: 2
+        x: 297
+        y: 736
+        width: 81
+        height: 116
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d56e2d1ac099044cc8ea9b754bb470af
+      internalID: 353593261
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_3
+      rect:
+        serializedVersion: 2
+        x: 428
+        y: 736
+        width: 81
+        height: 117
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 79645eb68a5124d59ab2407c87056ab3
+      internalID: 633282382
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_4
+      rect:
+        serializedVersion: 2
+        x: 564
+        y: 736
+        width: 84
+        height: 116
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 94d9be7bb331f4877b47e31a12750254
+      internalID: -422993748
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_5
+      rect:
+        serializedVersion: 2
+        x: 30
+        y: 594
+        width: 81
+        height: 118
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9556bd5d7fae342b18de295c04424416
+      internalID: -1615991921
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_6
+      rect:
+        serializedVersion: 2
+        x: 162
+        y: 596
+        width: 83
+        height: 116
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 98499ecd42ca94cb788a9b4d2336b780
+      internalID: -2135867808
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_7
+      rect:
+        serializedVersion: 2
+        x: 297
+        y: 596
+        width: 81
+        height: 118
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: dcd0acb96c39146c8ba84aada734b5d2
+      internalID: 1432840037
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_8
+      rect:
+        serializedVersion: 2
+        x: 428
+        y: 596
+        width: 82
+        height: 116
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ed4e806ac92a34e6585d00ede695fa36
+      internalID: 288897605
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_9
+      rect:
+        serializedVersion: 2
+        x: 564
+        y: 596
+        width: 84
+        height: 118
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e3034fa14e6e24344874a566b5397148
+      internalID: 2140752285
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_10
+      rect:
+        serializedVersion: 2
+        x: 30
+        y: 456
+        width: 84
+        height: 115
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d551172d9b0274723a3f5def5ae35ad9
+      internalID: 2068277474
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_11
+      rect:
+        serializedVersion: 2
+        x: 164
+        y: 456
+        width: 82
+        height: 115
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1f4a648cfaaf343bb8662c6b81b1f987
+      internalID: 314753397
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_12
+      rect:
+        serializedVersion: 2
+        x: 297
+        y: 456
+        width: 81
+        height: 115
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 063df83c01f624ac18980115f0147723
+      internalID: -414736782
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_13
+      rect:
+        serializedVersion: 2
+        x: 427
+        y: 456
+        width: 82
+        height: 115
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d2b68bd3c1b6c48eab6aa2d38fc5fd2a
+      internalID: -262162537
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_14
+      rect:
+        serializedVersion: 2
+        x: 565
+        y: 456
+        width: 83
+        height: 115
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 35c6c6838844a4eb789c2a8ca0ee13ab
+      internalID: -1282412882
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_15
+      rect:
+        serializedVersion: 2
+        x: 30
+        y: 312
+        width: 81
+        height: 120
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 609ce9e7a69444d719892f1fca0ed6e2
+      internalID: 39689645
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_16
+      rect:
+        serializedVersion: 2
+        x: 164
+        y: 315
+        width: 82
+        height: 117
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 198b19bec013345b99bae8fa37a0cc7d
+      internalID: -1863041849
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_17
+      rect:
+        serializedVersion: 2
+        x: 297
+        y: 312
+        width: 81
+        height: 119
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c2a2d412e510c46bb8ac10116dba0f67
+      internalID: 933219563
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_18
+      rect:
+        serializedVersion: 2
+        x: 428
+        y: 315
+        width: 82
+        height: 116
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: eceb6b25f1bba4f1ea9cb98837299f9d
+      internalID: -253101620
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_19
+      rect:
+        serializedVersion: 2
+        x: 565
+        y: 315
+        width: 83
+        height: 117
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8294e2e14948641f99a614df4cffff93
+      internalID: 2133699765
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_20
+      rect:
+        serializedVersion: 2
+        x: 30
+        y: 174
+        width: 81
+        height: 117
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 2ceb3062a35364903b688d187eaee6f8
+      internalID: 1244397008
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_21
+      rect:
+        serializedVersion: 2
+        x: 162
+        y: 175
+        width: 83
+        height: 116
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 21e13cd76fcd648788ed02ca059ad68b
+      internalID: 1471535812
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_22
+      rect:
+        serializedVersion: 2
+        x: 297
+        y: 174
+        width: 81
+        height: 117
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d4fb55e1948c84b6e9775f54d23e93bd
+      internalID: 131526411
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_23
+      rect:
+        serializedVersion: 2
+        x: 426
+        y: 175
+        width: 84
+        height: 116
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 179c152a0847f4bc0bfd45c1b300da92
+      internalID: 81274926
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_24
+      rect:
+        serializedVersion: 2
+        x: 565
+        y: 175
+        width: 83
+        height: 116
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d32c05197c0c345628b90a745dc4ea19
+      internalID: 1317093281
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_25
+      rect:
+        serializedVersion: 2
+        x: 30
+        y: 34
+        width: 81
+        height: 116
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 2feed75fb6d17408ca03cc67897affe7
+      internalID: 387905685
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_26
+      rect:
+        serializedVersion: 2
+        x: 164
+        y: 33
+        width: 82
+        height: 117
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e034137121bcb4fdb809d4672490f252
+      internalID: 354080657
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_27
+      rect:
+        serializedVersion: 2
+        x: 297
+        y: 34
+        width: 81
+        height: 116
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: bfdb2cd6ba0594fd88c73d159fc90847
+      internalID: -2077617819
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_28
+      rect:
+        serializedVersion: 2
+        x: 424
+        y: 34
+        width: 83
+        height: 118
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 17f1080e842384c27bcb1df0f47ba267
+      internalID: 275681089
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CM_UI_Panel_Cards_29
+      rect:
+        serializedVersion: 2
+        x: 565
+        y: 34
+        width: 81
+        height: 116
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b0bc065bedeb545db9e1bdc6d7bb0ff5
+      internalID: 1682466995
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    nameFileIdTable:
+      CM_UI_Panel_Cards_0: 1479915683
+      CM_UI_Panel_Cards_1: -832906929
+      CM_UI_Panel_Cards_10: 2068277474
+      CM_UI_Panel_Cards_11: 314753397
+      CM_UI_Panel_Cards_12: -414736782
+      CM_UI_Panel_Cards_13: -262162537
+      CM_UI_Panel_Cards_14: -1282412882
+      CM_UI_Panel_Cards_15: 39689645
+      CM_UI_Panel_Cards_16: -1863041849
+      CM_UI_Panel_Cards_17: 933219563
+      CM_UI_Panel_Cards_18: -253101620
+      CM_UI_Panel_Cards_19: 2133699765
+      CM_UI_Panel_Cards_2: 353593261
+      CM_UI_Panel_Cards_20: 1244397008
+      CM_UI_Panel_Cards_21: 1471535812
+      CM_UI_Panel_Cards_22: 131526411
+      CM_UI_Panel_Cards_23: 81274926
+      CM_UI_Panel_Cards_24: 1317093281
+      CM_UI_Panel_Cards_25: 387905685
+      CM_UI_Panel_Cards_26: 354080657
+      CM_UI_Panel_Cards_27: -2077617819
+      CM_UI_Panel_Cards_28: 275681089
+      CM_UI_Panel_Cards_29: 1682466995
+      CM_UI_Panel_Cards_3: 633282382
+      CM_UI_Panel_Cards_4: -422993748
+      CM_UI_Panel_Cards_5: -1615991921
+      CM_UI_Panel_Cards_6: -2135867808
+      CM_UI_Panel_Cards_7: 1432840037
+      CM_UI_Panel_Cards_8: 288897605
+      CM_UI_Panel_Cards_9: 2140752285
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
