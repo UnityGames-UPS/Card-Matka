@@ -5,18 +5,36 @@ using DG.Tweening;
 using UnityEngine.UI;
 using TMPro;
 using UnityEngine.Networking;
-using JetBrains.Annotations;
 
 public class UiManager : MonoBehaviour
 {
     [SerializeField]
     private SocketIOManager socketManager;
+    [SerializeField] private BetManager betManager;
+    [SerializeField] private GameManager gameManager;
+    [SerializeField] private AnimationManager animationManager;
+    [SerializeField] private InGamePopupManager inGamePopupManager;
 
     [Header("Screens UI")]
     [SerializeField] private GameObject HomeScreen_Object;
+    [SerializeField] private GameObject LoadingScreen_Object;
     [SerializeField] private GameObject GameScreen_Object;
 
+    [Header("Timer Objects")]
+    [SerializeField] private GameObject HighTimer_Object;
+    [SerializeField] private GameObject LowTimer_Object;
+    [SerializeField] private GameObject LockedTimer_Object;
+    [SerializeField] private GameObject NextRoundTimer_Object;
 
+    [Header("Texts")]
+    [SerializeField] private TMP_Text UserId_Text;
+    [SerializeField] private TMP_Text RoomId_Text;
+    [SerializeField] private TMP_Text Timer_Text;
+    [SerializeField] private TMP_Text UserName_Text;
+    [SerializeField] private TMP_Text Balance_Text;
+
+    [Header("Win Objects")]
+    [SerializeField] private TMP_Text winText;
 
     [Header("bottom bar Main Buttons")]
     [SerializeField] private Button HistoryMain_button;
@@ -44,6 +62,7 @@ public class UiManager : MonoBehaviour
     [SerializeField] private GameObject Homebutton_Object;
 
     [SerializeField] private Button HistoryClose_button;
+    [SerializeField] internal HistoryController historyController;
 
     [SerializeField] private Button InfoClose_button;
 
@@ -57,24 +76,6 @@ public class UiManager : MonoBehaviour
 
     private bool IsMenuPanelOpen = false;
 
-
-    //  [Header("Andar Bahar Menu Buttons")]
-    // [SerializeField] private Button MenuInGame_button;
-    // [SerializeField] private Button InfoInGame_button;
-    // [SerializeField] private Button SoundInGame_button;
-    // [SerializeField] private Button MusicInGame_button;
-    // [SerializeField] private Button HomeInGame_button;
-
-
-
-
-
-
-
-
-
-
-
     [Header("Popus UI")]
     [SerializeField]
     private GameObject MainPopup_Object;
@@ -83,8 +84,6 @@ public class UiManager : MonoBehaviour
     [SerializeField] private GameObject GameQuitPopup;
     [SerializeField] private GameObject HistoryPopup_Object;
     [SerializeField] private GameObject InfoPopup_Object;
-
-
 
     [Header("Settings Popup")]
     [SerializeField]
@@ -149,17 +148,8 @@ public class UiManager : MonoBehaviour
     private Button PaytableExit_Button;
     [SerializeField]
     private Button GameExit_Button;
-    [SerializeField]
-    private GameManager gameManager;
-
-
-
-
-
-
-
-
-
+    //[SerializeField]
+    //private GameManager gameManager;
 
     [Space(100)]
     [Header("HomePage")]
@@ -193,16 +183,11 @@ public class UiManager : MonoBehaviour
     // [SerializeField] private float spacing = 70f;      // Space between coins
     // [SerializeField] private float duration = 0.3f;    // Animation duration
 
-    [Space(100)]
     [Header("loadingPage")]
     [SerializeField] private GameObject loadingPage;
 
 
-
-
-    [Space(100)]
     [Header("Animation Settings")]
-
 
     private List<Button> menuButtons;
     private List<Button> menuButtonsGP;
@@ -221,7 +206,6 @@ public class UiManager : MonoBehaviour
     private Vector3[] originalPositions;
     private RectTransform[] buttonRects;
     private CanvasGroup[] buttonGroups;
-    private Vector2 menuMainPos;
 
     [SerializeField]
     private AudioManager audioController;
@@ -236,16 +220,6 @@ public class UiManager : MonoBehaviour
     {
 
         assignButtonListeners();
-
-
-
-
-        // homepage toggle text scroll
-        startPos = ToggleTextObj.anchoredPosition;
-
-        StartScroll();
-
-
 
         // bhutton panel anim
         //  menuMainPos = menuMainButton.anchoredPosition;
@@ -444,7 +418,7 @@ public class UiManager : MonoBehaviour
         if (GameRulesGP) GameRulesGP.onClick.AddListener(delegate { OpenPopup(InfoPopup_Object); MenuPanel_Object.SetActive(false); });
 
         if (HistoryGP) HistoryGP.onClick.RemoveAllListeners();
-        if (HistoryGP) HistoryGP.onClick.AddListener(delegate { OpenPopup(HistoryPopup_Object); MenuPanel_Object.SetActive(false); });
+        if (HistoryGP) HistoryGP.onClick.AddListener(delegate { OpenPopup(HistoryPopup_Object); gameManager.RequestHistory(1); MenuPanel_Object.SetActive(false); });
 
         if (SoundGP) SoundGP.onClick.RemoveAllListeners();
         if (SoundGP) SoundGP.onClick.AddListener(delegate { ToggleSound(); });
@@ -598,19 +572,6 @@ public class UiManager : MonoBehaviour
 
         isMenueExpanded = false;
     }
-    private void ToggleMenuPanel()
-    {
-        if (IsMenuPanelOpen)
-        {
-            MenuPanel_Object.SetActive(false);
-            IsMenuPanelOpen = false;
-        }
-        else
-        {
-            MenuPanel_Object.SetActive(true);
-            IsMenuPanelOpen = true;
-        }
-    }
 
 
 
@@ -721,10 +682,6 @@ public class UiManager : MonoBehaviour
         }
     }
 
-    private void UrlButtons(string url)
-    {
-        Application.OpenURL(url);
-    }
 
     private void ToggleSound()
     {
@@ -868,15 +825,18 @@ public class UiManager : MonoBehaviour
     }
 
 
-    internal void OnCoinSelected(Button selectedCoin)
+    internal void OnCoinSelected(Button selectedCoin, int chipIndex, GameObject chipPrefab)
     {
         // Swap visuals (text, image) between main selector and selected coin
         var tempImage = coinSelector.image.sprite;
         coinSelector.image.sprite = selectedCoin.image.sprite;
-        selectedCoin.image.sprite = tempImage;
+        coinSelector.GetComponentInChildren<TMP_Text>().text = selectedCoin.GetComponentInChildren<TMP_Text>().text;
+        //selectedCoin.image.sprite = tempImage;
 
         // Fold back coins
         RetractCoins();
+        betManager.selectedChipIndex = chipIndex;
+        betManager.chipPrefab = chipPrefab;
     }
 
 
@@ -947,25 +907,122 @@ public class UiManager : MonoBehaviour
     }
     #endregion
 
-
-    #region  LOading page
-
-    IEnumerator LoadingPageRoutine(GameObject panelToOpen, GameObject panelToClose)
+    internal void UpdateTimer(int time)
     {
-        loadingPage.SetActive(true);
-        panelToClose.SetActive(false);
-        yield return new WaitForSeconds(5f);
+        Timer_Text.text = time.ToString();
+        if (gameManager.currentPhase == GameManager.GamePhase.Betting)
+        {
+            if (time == 5)
+            {
+                LowTimer_Object.SetActive(true);
+                HighTimer_Object.SetActive(false);
+                Timer_Text.gameObject.GetComponent<RectTransform>().DOPunchScale(Vector3.one * 1.5f, 0.5f).SetEase(Ease.OutElastic);
+                //Timer_Text.color = Color.red;
+            }
+            if (time == 1)
+            {
+                LockedTimer_Object.SetActive(true);
+                LowTimer_Object.SetActive(false);
+                Timer_Text.text = "";
+            }
+            else
+            {
+                HighTimer_Object.SetActive(true);
+                NextRoundTimer_Object.SetActive(false);
+                LockedTimer_Object.SetActive(false);
+                //Timer_Text.color = Color.white;
+            }
+        }
+        if (gameManager.currentPhase == GameManager.GamePhase.Waiting)
+        {
+            NextRoundTimer_Object.SetActive(true);
+            LockedTimer_Object.SetActive(false);
+        }
+    }
+
+    internal void UpdateBalance(double balance)
+    {
+        Balance_Text.text = balance.ToString("F2");
+    }
+
+    internal void RoundStart()
+    {
         loadingPage.SetActive(false);
-        panelToOpen.SetActive(true);
+    }
+
+    internal void BetLocked(int bonusPosition, int bonusMultiplier)
+    {
+        HighTimer_Object.SetActive(false);
+        LowTimer_Object.SetActive(false);
+        LockedTimer_Object.SetActive(true);
+
+        betManager.isBettingOpen = false;
+        //animationManager.ShowBonusCards(bonusPosition, bonusMultiplier);
     }
 
 
+    internal void ShowCashoutUI(double winAmount)
+    {
+        // TMP_Text winText = slotGO.transform.GetChild(3).GetComponent<TMP_Text>();
+        RectTransform winRect = winText.GetComponent<RectTransform>();
 
+        winText.text = winAmount.ToString();
+        winText.alpha = 1f;
 
+        Vector2 startPos = winRect.anchoredPosition;
+        winRect.anchoredPosition = startPos;
+        winText.gameObject.SetActive(true);
 
+        // Pop animation
+        Sequence seq = DOTween.Sequence();
+        seq.Insert(0f, winRect.DOPunchScale(Vector3.one * 0.2f, 0.5f));
+        seq.Append(winRect.DOAnchorPosY(startPos.y + 170f, 1f).SetEase(Ease.OutCubic));
+        seq.Join(winText.DOFade(0f, 0.5f));
+    }
 
+    internal void SetInitialRoomJoinData(Root roomData, GameData initialData)
+    {
+        RoomId_Text.text = roomData.Payload.roomId;
 
+        string level = roomData.Payload.level.ToString();
 
+        //Coin Values
+        for (int i = 0; i < Coins.Count; i++)
+        {
+            if (level == "casual")
+            {
+                List<double> coinValues = initialData.bets.casual;
+                Coins[i].GetComponentInChildren<TMP_Text>().text = coinValues[i].ToString();
+                coinSelector.GetComponentInChildren<TMP_Text>().text = coinValues[0].ToString();
+            }
+            else if (level == "novice")
+            {
+                List<int> coinValues = initialData.bets.novice;
+                Coins[i].GetComponentInChildren<TMP_Text>().text = coinValues[i].ToString();
+                coinSelector.GetComponentInChildren<TMP_Text>().text = coinValues[0].ToString();
+            }
+            else if (level == "expert")
+            {
+                List<int> coinValues = initialData.bets.expert;
+                Coins[i].GetComponentInChildren<TMP_Text>().text = coinValues[i].ToString();
+                coinSelector.GetComponentInChildren<TMP_Text>().text = coinValues[0].ToString();
+            }
+            else if (level == "highroller")
+            {
+                List<int> coinValues = initialData.bets.high_roller;
+                Coins[i].GetComponentInChildren<TMP_Text>().text = coinValues[i].ToString();
+                coinSelector.GetComponentInChildren<TMP_Text>().text = coinValues[0].ToString();
+            }
+        }
+    }
 
-    #endregion
+    internal void SetInitialGameData(GameData gameData)
+    {
+        // Set any game data that needs to be initialized at the start of each game
+        UserId_Text.text = socketManager.playerdata.username;
+        UserName_Text.text = socketManager.playerdata.username;
+        Balance_Text.text = socketManager.playerdata.balance.ToString();
+        inGamePopupManager.SetInitialGameData(gameData);
+    }
+
 }

@@ -138,4 +138,10 @@ void Start()
 			rendererDelegate.sprite = textureArray[indexOfTexture];
 		}
 	}
+
+	internal void ResetAnimationState()
+	{
+		RevertToInitialState();
+		currentAnimationState = ImageState.NONE;
+	}
 }

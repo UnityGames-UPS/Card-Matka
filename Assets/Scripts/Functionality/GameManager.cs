@@ -4,370 +4,283 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using DG.Tweening;
-using System;
 
 public class GameManager : MonoBehaviour
 {
-    [Header("Buttons")]
-    [SerializeField] private Button TBetPlus_Button;
-    [SerializeField] private Button TBetMinus_Button;
-    [SerializeField] private Button TBetMin_Button;
-    [SerializeField] private Button TBetMax_Button;
-
-    [SerializeField] private Button MultiplierPlus_Button;
-    [SerializeField] private Button MultiplierMinus_Button;
-    [SerializeField] private Button Bet_Button;
-    internal int BetCounter;
-    internal int MultiplierCounter;
-
-    [Header("Texts")]
-    [SerializeField] private TMP_Text TotalBet_text;
-    [SerializeField] private TMP_Text balance_text;
-    [SerializeField] private TMP_Text win_text;
-    [SerializeField] private TMP_Text Multiplier_text;
-    [SerializeField] private TMP_Text WinChance_text;
-    [SerializeField] private TMP_Text ResponseMult_text;
-
-
-    [Header("Managers")]
-    [SerializeField] SocketIOManager socketManager;
+    // ── Inspector ──────────────────────────────────────────────────────────────
+    [Header("Manager References")]
     [SerializeField] internal UiManager uiManager;
+    [SerializeField] internal BetManager betManager;
+    [SerializeField] internal SocketIOManager socketManager;
+    [SerializeField] private AnimationManager animationManager;
+    [SerializeField] private HistoryController historyController;
 
-    private double currentTotalBet = 0;
-    private double currentBalance;
-    private double animationduration = 2f;
+    // [Header("Game Phase UI")]
+    // [SerializeField] private GameObject BettingPhase_Object;
+    // [SerializeField] private GameObject BonusPhase_Object;
+    // [SerializeField] private GameObject CardReveal_Object;
+    // [SerializeField] private GameObject CashoutPhase_Object;
+    // [SerializeField] private GameObject WaitingPhase_Object;
 
-    [SerializeField] AudioManager audioManager;
+    [Header("Card UI")]
+    [SerializeField] private List<GameObject> CardBlackBg;
 
-    [Header("GameObject")]
-    [SerializeField] private Transform CarObject;
-    private Vector3 startPos = new Vector3(0, -138, 0);
-    private Vector3 endPos = new Vector3(0, -10, 0);
+    [Header("Bonus UI")]
+    [SerializeField] private TMP_Text BonusPosition_Text;
+    [SerializeField] private TMP_Text BonusMultiplier_Text;
 
-    private void Start()
+    [Header("Cashout UI")]
+    [SerializeField] private TMP_Text WinAmount_Text;
+    [SerializeField] private GameObject WinEffect_Object;
+    [SerializeField] private GameObject LoseEffect_Object;
+
+    [Header("Leaderboard UI")]
+    [SerializeField] private List<TMP_Text> Richest_Texts;
+    [SerializeField] private List<TMP_Text> Winners_Texts;
+
+    [Header("Lobby Count UI")]
+    [SerializeField] private TMP_Text LobbyCount_Text;
+
+
+    // ── State ──────────────────────────────────────────────────────────────────
+    internal GamePhase currentPhase = GamePhase.Waiting;
+    private string currentRoundId = "";
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Game Phases Enum
+    // ─────────────────────────────────────────────────────────────────────────
+    internal enum GamePhase
     {
-        BetCounter = 0;
-        if (TBetPlus_Button) TBetPlus_Button.onClick.RemoveAllListeners();
-        if (TBetPlus_Button) TBetPlus_Button.onClick.AddListener(delegate { ChangeBet(true); audioManager.PlayButtonAudio(); });
+        Waiting,
+        Betting,
+        Bonus,
+        CardReveal,
+        Cashout
+    }
 
-        if (TBetMinus_Button) TBetMinus_Button.onClick.RemoveAllListeners();
-        if (TBetMinus_Button) TBetMinus_Button.onClick.AddListener(delegate { ChangeBet(false); audioManager.PlayButtonAudio(); });
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Init — called by SocketIOManager after game:init
+    // ─────────────────────────────────────────────────────────────────────────
+    internal void OnInitData(GameData gameData, Player player)
+    {
+        Debug.Log("GameManager: Init data received");
+        betManager.SetBalance(player.balance);
+        uiManager.UpdateBalance(player.balance);
+        uiManager.SetInitialGameData(gameData);
+        SetPhase(GamePhase.Waiting);
+    }
 
-        if (TBetMin_Button) TBetMin_Button.onClick.RemoveAllListeners();
-        if (TBetMin_Button) TBetMin_Button.onClick.AddListener(delegate { SetBetToMin(); audioManager.PlayButtonAudio(); });
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Phase 1 — BETTING
+    //  Triggered by: game:round_start
+    // ─────────────────────────────────────────────────────────────────────────
+    internal void OnRoundStart(string roundId)
+    {
+        Debug.Log($"GameManager: Round started → {roundId}");
+        currentRoundId = roundId;
 
-        if (TBetMax_Button) TBetMax_Button.onClick.RemoveAllListeners();
-        if (TBetMax_Button) TBetMax_Button.onClick.AddListener(delegate { SetBetToMax(); audioManager.PlayButtonAudio(); ; });
+        betManager.OnRoundStart();
+        uiManager.RoundStart();
+        SetPhase(GamePhase.Betting);
+        ToggleCardBlackBg(false);
+    }
 
-        if (MultiplierPlus_Button) MultiplierPlus_Button.onClick.RemoveAllListeners();
-        if (MultiplierPlus_Button) MultiplierPlus_Button.onClick.AddListener(delegate { ChangeMultiplier(true); audioManager.PlayButtonAudio(); });
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Timer sync — called every game:betting_timer tick
+    // ─────────────────────────────────────────────────────────────────────────
+    internal void OnTimerTick(float timeRemainingMs)
+    {
+        float seconds = timeRemainingMs / 1000f;
+        int displaySeconds = Mathf.CeilToInt(seconds);
+        uiManager.UpdateTimer(displaySeconds);
+    }
 
-        if (MultiplierMinus_Button) MultiplierMinus_Button.onClick.RemoveAllListeners();
-        if (MultiplierMinus_Button) MultiplierMinus_Button.onClick.AddListener(delegate { ChangeMultiplier(false); audioManager.PlayButtonAudio(); });
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Phase 2 — BONUS REVEAL
+    //  Triggered by: game:bonus
+    // ─────────────────────────────────────────────────────────────────────────
+    internal void OnBonus(int bonusPosition, int bonusMultiplier)
+    {
+        Debug.Log($"GameManager: Bonus → position:{bonusPosition} multiplier:{bonusMultiplier}x");
+        betManager.SlideOutToLeft(betManager.BetButtonPanel);
+        SetPhase(GamePhase.Bonus);
+        uiManager.BetLocked(bonusPosition, bonusMultiplier);
+        ToggleCardBlackBg(true);
+        //ShowBonusUI(bonusPosition, bonusMultiplier);
+    }
 
-        if (Bet_Button) Bet_Button.onClick.RemoveAllListeners();
-        if (Bet_Button) Bet_Button.onClick.AddListener(delegate { StartBet(); audioManager.PlayBetButtonAudio(); });
+    private void ShowBonusUI(int position, int multiplier)
+    {
+        if (BonusPosition_Text != null)
+            BonusPosition_Text.text = $"Position: {position}";
 
+        if (BonusMultiplier_Text != null)
+            BonusMultiplier_Text.text = $"{multiplier}x";
 
+        // Punch-scale animation on bonus panel
+        // if (BonusPhase_Object != null)
+        //     BonusPhase_Object.transform.DOPunchScale(Vector3.one * 0.15f, 0.4f, 5, 0.5f);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Phase 3 — CARD RESULT
+    //  Triggered by: game:card_result
+    // ─────────────────────────────────────────────────────────────────────────
+    internal void OnCardResult(string resultCard, string resultSuit, string combination)
+    {
+        //Debug.Log($"GameManager: Card result → {combination}");
+
+        SetPhase(GamePhase.CardReveal);
+        animationManager.WheelAnimation(resultCard, resultSuit);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Phase 4 — CASHOUT
+    //  Triggered by: game:cashout
+    // ─────────────────────────────────────────────────────────────────────────
+    internal void OnCashout(double winAmount, double balance, List<Payout> payouts, Leaderboards leaderboards)
+    {
+        Debug.Log($"GameManager: Cashout → win:{winAmount} balance:{balance}");
+
+        SetPhase(GamePhase.Cashout);
+
+        // Update balance via betManager (also animates chips)
+        betManager.OnCashout(winAmount, balance);
+        uiManager.UpdateBalance(balance);
+
+        // Show win/lose
+        uiManager.ShowCashoutUI(winAmount);
+
+        // Update leaderboard
+        if (leaderboards != null)
+            UpdateLeaderboardUI(leaderboards);
     }
 
 
-    private void ChangeBet(bool IncDec)
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Phase 5 — ROUND END / WAITING
+    //  Triggered by: game:round_end
+    // ─────────────────────────────────────────────────────────────────────────
+    internal void OnRoundEnd(string roundId)
     {
-        Debug.Log("changeBetRan");
-        if (IncDec)
+        Debug.Log($"GameManager: Round ended → {roundId}");
+
+        betManager.OnRoundEnd();
+        SetPhase(GamePhase.Waiting);
+
+        // Clean up result UI
+        ResetResultUI();
+    }
+
+    private void ResetResultUI()
+    {
+
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Lobby Count
+    //  Triggered by: game:lobby_count
+    // ─────────────────────────────────────────────────────────────────────────
+    internal void OnLobbyCount(string level, int count)
+    {
+        Debug.Log($"GameManager: Lobby count → {level}: {count}");
+
+        // switch (level)
+        // {
+        //     case "casual": if (CasualCount_Text != null) CasualCount_Text.text = count.ToString(); break;
+        //     case "novice": if (NoviceCount_Text != null) NoviceCount_Text.text = count.ToString(); break;
+        //     case "expert": if (ExpertCount_Text != null) ExpertCount_Text.text = count.ToString(); break;
+        //     case "high_roller": if (HighRollerCount_Text != null) HighRollerCount_Text.text = count.ToString(); break;
+        // }
+        if (LobbyCount_Text != null)
+            LobbyCount_Text.text = $"{count}";
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Leaderboard Update
+    //  Triggered by: game:leaderboard_update
+    // ─────────────────────────────────────────────────────────────────────────
+    internal void OnLeaderboardUpdate(Leaderboards leaderboards)
+    {
+        Debug.Log("GameManager: Leaderboard updated");
+        UpdateLeaderboardUI(leaderboards);
+    }
+
+    private void UpdateLeaderboardUI(Leaderboards leaderboards)
+    {
+        // if (leaderboards?.richest != null)
+        // {
+        //     for (int i = 0; i < Richest_Texts.Count && i < leaderboards.richest.Count; i++)
+        //     {
+        //         var entry = leaderboards.richest[i];
+        //         Richest_Texts[i].text = $"{entry.rank}. {entry.username}  {FormatAmount(entry.balance)}";
+        //     }
+        // }
+
+        // if (leaderboards?.winners != null)
+        // {
+        //     for (int i = 0; i < Winners_Texts.Count && i < leaderboards.winners.Count; i++)
+        //     {
+        //         var entry = leaderboards.winners[i];
+        //         Winners_Texts[i].text = $"{entry.rank}. {entry.username}  {entry.totalWins} wins";
+        //     }
+        // }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Phase switcher — controls which screen is visible
+    // ─────────────────────────────────────────────────────────────────────────
+    private void SetPhase(GamePhase phase)
+    {
+        currentPhase = phase;
+
+        // if (BettingPhase_Object != null) BettingPhase_Object.SetActive(phase == GamePhase.Betting);
+        // if (BonusPhase_Object != null) BonusPhase_Object.SetActive(phase == GamePhase.Bonus);
+        // if (CardReveal_Object != null) CardReveal_Object.SetActive(phase == GamePhase.CardReveal);
+        // if (CashoutPhase_Object != null) CashoutPhase_Object.SetActive(phase == GamePhase.Cashout);
+        // if (WaitingPhase_Object != null) WaitingPhase_Object.SetActive(phase == GamePhase.Waiting);
+
+        Debug.Log($"GameManager: Phase → {phase}");
+        
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Level Selection — called from UI buttons
+    // ─────────────────────────────────────────────────────────────────────────
+    internal void SelectLevel(string level)
+    {
+        betManager.currentLevel = level;
+        socketManager.SendRoomSelection(level);
+        Debug.Log($"GameManager: Joined level → {level}");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Bet Action Hooks — wire UI buttons to these
+    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    //  History — called by SocketIOManager after BET_HISTORY ack
+    // ─────────────────────────────────────────────────────────────────────────
+    internal void OnHistoryReceived(System.Collections.Generic.List<HistoryRound> history, HistoryMeta meta)
+    {
+        historyController.OnDataReceived(history, meta);
+    }
+
+    internal void RequestHistory(int page)
+    {
+        socketManager.SendHistory(page);
+    }
+
+    internal void OnUndoButton() => betManager.SendUndo();
+    internal void OnCancelButton() => betManager.SendCancel();
+    internal void OnDoubleButton() => betManager.SendDouble();
+    internal void OnRepeatButton() => betManager.SendRepeat();
+
+    private void ToggleCardBlackBg(bool show)
+    {
+        foreach (var bg in CardBlackBg)
         {
-            BetCounter++;
-            if (BetCounter >= socketManager.initialData.bets.Count)
-            {
-                BetCounter = 0;
-            }
+            if (bg != null)
+                bg.SetActive(show);
         }
-        else
-        {
-            BetCounter--;
-            if (BetCounter < 0)
-            {
-                BetCounter = socketManager.initialData.bets.Count - 1;
-            }
-        }
-        UpdateBetUI();
-
     }
-    private void SetBetToMin()
-    {
-        BetCounter = 0;
-        UpdateBetUI();
-    }
-
-    private void SetBetToMax()
-    {
-        BetCounter = socketManager.initialData.bets.Count - 1;
-        UpdateBetUI();
-    }
-    private void UpdateBetUI()
-    {
-        if (TotalBet_text)
-            TotalBet_text.text = socketManager.initialData.bets[BetCounter].ToString("F2");
-
-        currentTotalBet = socketManager.initialData.bets[BetCounter];
-    }
-
-    private void ChangeMultiplier(bool IncDec)
-    {
-        if (IncDec)
-        {
-            MultiplierCounter++;
-            if (MultiplierCounter >= socketManager.initialData.multipliers.Count)
-            {
-                MultiplierCounter = 0;
-            }
-        }
-        else
-        {
-            MultiplierCounter--;
-            if (MultiplierCounter < 0)
-            {
-                MultiplierCounter = socketManager.initialData.multipliers.Count - 1;
-            }
-        }
-        Multiplier_text.text = "x" + socketManager.initialData.multipliers[MultiplierCounter].ToString("f2");
-        SetWinningChance(MultiplierCounter);
-
-    }
-
-    private void StartBet()
-    {
-        StartCoroutine(accumulateResult());
-    }
-
-
-
-    IEnumerator accumulateResult()
-    {
-        win_text.text = "WIN:0.00";
-        currentBalance = socketManager.playerdata.balance;
-        if (currentBalance < currentTotalBet)
-        {
-            lowBalance();
-            yield break;
-        }
-
-        else
-        {
-            ToggleButtongroup(false);
-            updateBalance(currentTotalBet, false);
-            StartAccelerateAnimation();
-            socketManager.AccumulateResult(BetCounter, socketManager.initialData.multipliers[MultiplierCounter]);
-            yield return new WaitUntil(() => socketManager.isResultdone);
-            AnimateValue(socketManager.resultData.crashPoint, 1.4f);
-            yield return new WaitForSeconds(1f);
-            StopAccelerateAnimation();
-            if (socketManager.resultData.winAmount > 0)
-            {
-
-                win_text.rectTransform.localScale = Vector3.one;
-
-                win_text.rectTransform
-                    .DOScale(1.5f, 1f)
-                    .SetEase(Ease.Linear)   
-                    .OnComplete(() =>
-                    {
-                        win_text.rectTransform
-                            .DOScale(1f, 0.75f)
-                            .SetEase(Ease.Linear);
-                    });
-                audioManager.PlayWinAudio();
-            }
-            win_text.text = "WIN:" + socketManager.resultData.winAmount.ToString("f2");
-            balance_text.text = socketManager.playerdata.balance.ToString("f2");
-            yield return new WaitForSeconds(1f);
-        }
-
-    }
-
-
-
-    internal void setInitialUI()
-    {
-
-        currentBalance = socketManager.playerdata.balance;
-        balance_text.text = socketManager.playerdata.balance.ToString("f2");
-        currentTotalBet = socketManager.initialData.bets[0];
-        if (TotalBet_text) TotalBet_text.text = currentTotalBet.ToString("f2");
-        currentTotalBet = socketManager.initialData.bets[BetCounter];
-        Multiplier_text.text = "x" + socketManager.initialData.multipliers[0].ToString("f2");
-        win_text.text = "WIN:0.00";
-        SetWinningChance(0);
-
-    }
-
-
-    void lowBalance()
-    {
-        ToggleButtongroup(true);
-        uiManager.LowBalPopup();
-    }
-
-    internal void updateBalance(double amount, bool add)
-    {
-        if (add)
-        {
-
-            currentBalance += amount;
-            balance_text.text = currentBalance.ToString("f2");
-        }
-        else
-        {
-            currentBalance -= amount;
-            balance_text.text = currentBalance.ToString("f2");
-
-        }
-    }
-
-
-    private void ToggleButtongroup(bool toggle)
-    {
-        Debug.Log($"toggleUI ran with {toggle}");
-        TBetPlus_Button.interactable = toggle;
-        TBetMinus_Button.interactable = toggle;
-        TBetMax_Button.interactable = toggle;
-        TBetMin_Button.interactable = toggle;
-
-        MultiplierPlus_Button.interactable = toggle;
-        MultiplierMinus_Button.interactable = toggle;
-
-        Bet_Button.interactable = toggle;
-
-
-
-
-    }
-
-
-    public void SetWinningChance(int multiplierIndex)
-    {
-        if (WinChance_text == null) return;
-
-        if (multiplierIndex < 0 || multiplierIndex >= socketManager.initialData.multipliers.Count)
-            return;
-
-        double winchance = ((1 - socketManager.initialData.houseEdge) / (socketManager.initialData.multipliers[multiplierIndex]) * 100);
-
-        WinChance_text.text = $"Win Chance: {winchance:F2}%";
-    }
-
-    public void AnimateValue(double targetValue, float duration)
-    {
-        Debug.Log($"##### animate value is  called :");
-        ResponseMult_text.alignment = TextAlignmentOptions.Center;
-        double currentValue = 1.00;
-        audioManager.PlayWLAudio("numberchange");
-        DOTween.Kill(this);
-        DOTween.To(
-            () => currentValue,
-            x => currentValue = x,
-            targetValue,
-            duration
-        )
-        .OnUpdate(() =>
-        {
-            if (ResponseMult_text != null)
-            {
-
-                ResponseMult_text.text = currentValue.ToString("F2") + "X";
-            }
-        })
-        .OnComplete(() =>
-      {
-          if (ResponseMult_text != null && socketManager != null && socketManager.resultData != null)
-          {
-              if (socketManager.resultData.winAmount > 0)
-                  ResponseMult_text.color = Color.green;
-              else
-                  ResponseMult_text.color = Color.red;
-          }
-      })
-        .SetEase(Ease.Linear)
-        .SetId(this);
-    }
-
-    #region Car Animation
-
-    public void StartAccelerateAnimation(float tiltAngle = 1f)
-    {
-        if (CarObject == null)
-        {
-            Debug.LogError("Model not assigned!");
-            return;
-        }
-
-        CarObject.localPosition = startPos;
-        CarObject.localScale = Vector3.one;
-        CarObject.localRotation = Quaternion.identity;
-
-        CarObject.DOLocalRotate(new Vector3(0, 0, tiltAngle), 0.001f)
-             .SetLoops(-1, LoopType.Yoyo)
-             .SetEase(Ease.InOutSine)
-             .SetId("RevTween");
-
-        CarObject.DOLocalMoveY(startPos.y - 3f, 0.2f).SetEase(Ease.OutSine);
-    }
-
-    public void StopAccelerateAnimation()
-    {
-        DOTween.Kill("RevTween");
-        DOTween.Kill("RevBounceTween");
-
-        Sequence seq = DOTween.Sequence();
-
-        seq.Join(CarObject.DOLocalMove(startPos, 0.3f).SetEase(Ease.OutSine));
-        seq.Join(CarObject.DOLocalRotate(Vector3.zero, 0.2f).SetEase(Ease.OutSine));
-
-        seq.OnComplete(() => MoveCarAnim());
-    }
-
-    public void MoveCarAnim()
-    {
-        audioManager.PlayWLAudio("car");
-
-        if (CarObject == null)
-        {
-            Debug.LogError("Model not assigned!");
-            return;
-        }
-
-        CarObject.localPosition = startPos;
-        CarObject.localScale = Vector3.one;
-        CarObject.localRotation = Quaternion.identity;
-
-        Sequence seq = DOTween.Sequence();
-
-        seq.Append(CarObject.DOLocalMove(endPos, 1.5f).SetEase(Ease.OutCubic));
-        seq.Join(CarObject.DOScale(Vector3.one * 0.001f, 1.5f).SetEase(Ease.OutCubic));
-
-        seq.OnComplete(() =>
-        {
-            Reset();
-        });
-    }
-
-
-    private void Reset()
-    {
-        ToggleButtongroup(true);
-        ResponseMult_text.text = "1.00X";
-        ResponseMult_text.color = Color.white;
-        ResetCar();
-    }
-
-    private void ResetCar()
-    {
-        CarObject.localPosition = startPos;
-        CarObject.localScale = Vector3.one;
-        CarObject.localRotation = Quaternion.identity;
-    }
-
-    #endregion
-
 }

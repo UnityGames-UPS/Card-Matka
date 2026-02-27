@@ -10,6 +10,8 @@ public class Chip : MonoBehaviour
     [SerializeField] private TMP_Text ChipText;
     [SerializeField] private Image chipCoinImg;
     [SerializeField] private Button buttonSelection;
+    [SerializeField] internal int ChipIndex;
+    [SerializeField] internal GameObject chipPrefab;
 
     void Start()
     {
@@ -19,7 +21,7 @@ public class Chip : MonoBehaviour
 
     void OnButtonClick()
     {
-        if (uiManager) uiManager.OnCoinSelected(buttonSelection);
+        if (uiManager) uiManager.OnCoinSelected(buttonSelection, ChipIndex , chipPrefab);
     }
     internal void SetData(Sprite coinImg, string coinValue)
     {
