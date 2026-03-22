@@ -33,23 +33,20 @@ public class AnimationManager : MonoBehaviour
     [SerializeField] private List<GameObject> CardObjects;
 
     [Header("Manager References")]
-    [SerializeField] private UiManager   uiManager;
+    [SerializeField] private UiManager uiManager;
     [SerializeField] private GameManager gameManager;
+    [SerializeField] private BetManager betManager;
+    [SerializeField] private WinHistoryController winHistoryController;
+    [SerializeField] private AudioManager audioManager;
 
-    // ── Wheel Layout ───────────────────────────────────────────────────────────
-    // 12 segments × 30° each. Pointer is fixed at TOP.
-    // Outer wheel spins CLOCKWISE  → negative Z rotation
-    // Inner wheel spins COUNTER-CLOCKWISE → positive Z rotation
-    // To land segment[N] at the top: outer rotates -(N × 30°), inner rotates +(N × 30°)
-
-    private static readonly string[] OuterLayout = { "K","J","Q","K","J","Q","K","J","Q","K","J","Q" };
-    private static readonly string[] InnerLayout  = { "diamonds","spades","hearts","clubs","spades","hearts","diamonds","clubs","spades","diamonds","hearts","clubs" };
+    private static readonly string[] OuterLayout = { "Q", "J", "K", "Q", "J", "K", "Q", "J", "K", "Q", "J", "K" };
+    private static readonly string[] InnerLayout = { "diamonds", "spades", "hearts", "clubs", "spades", "hearts", "diamonds", "clubs", "spades", "diamonds", "hearts", "clubs" };
 
     private const float SegmentDeg = 30f; // 360 / 12 segments
-    private const float ExtraSpins = 5f;  // full rotations added before settling
+    private const float ExtraSpins = 3f;  // full rotations added before settling
 
     [Header("Spin Settings")]
-    [SerializeField] private float SpinDuration = 3.5f;
+    [SerializeField] private float SpinDuration = 6f;
 
 
     internal void ShowBonusCards(string betOption, int bonusMultiplier)
@@ -58,22 +55,26 @@ public class AnimationManager : MonoBehaviour
         foreach (var cardObject in CardObjects)
         {
             Button cardButton = cardObject.GetComponent<Button>();
-            if(betOption == cardButton.GetComponent<BetButton>().betOption)
+            if (betOption == cardButton.GetComponent<BetButton>().betOption)
             {
-                GameObject bonusAnimationObject = cardObject.transform.GetChild(4).gameObject;
-                bonusAnimationObject.GetComponentInChildren<TextMeshPro>().text = $"{bonusMultiplier}x";
+                GameObject bonusAnimationObject = cardObject.transform.GetChild(6).gameObject;
+                bonusAnimationObject.GetComponentInChildren<TMP_Text>().text = $"{bonusMultiplier}x";
                 bonusAnimationObject.SetActive(true);
-                ImageAnimation bonusAnimation = bonusAnimationObject.GetComponent<ImageAnimation>();
-                bonusAnimation.rendererDelegate = bonusAnimationObject.GetComponent<Image>();
-                bonusAnimation.textureArray = new List<Sprite>(BonusAnimationSprites);
-                bonusAnimation.StartAnimation();
+                bonusAnimationObject.transform.localScale = Vector3.one * 3f;
+                bonusAnimationObject.transform.DOScale(1f, 0.3f);
+                // ImageAnimation bonusAnimation = bonusAnimationObject.GetComponent<ImageAnimation>();
+                // bonusAnimation.AnimationSpeed = 35f;
+                // bonusAnimation.rendererDelegate = bonusAnimationObject.GetComponent<Image>();
+                // bonusAnimation.textureArray = new List<Sprite>(BonusAnimationSprites);
+                // bonusAnimation.ResetAnimationState();
+                // bonusAnimation.StartAnimation();
             }
         }
     }
 
     internal void WheelAnimation(string card, string suit)
     {
-        ResetAnimationUI(); // clean up all leftovers from the previous round before spinning
+        ResetAnimationUI();
         StartCoroutine(SpinWheels(card, suit));
     }
 
@@ -88,71 +89,81 @@ public class AnimationManager : MonoBehaviour
             yield break;
         }
 
+        yield return new WaitForSeconds(0.7f);
+
         OuterWheel_Rect.DOKill();
         InnerWheel_Rect.DOKill();
+
+        // NO windback — reference video goes straight into spin
+        // Reset to identity so rotation math is clean
         OuterWheel_Rect.localRotation = Quaternion.identity;
         InnerWheel_Rect.localRotation = Quaternion.identity;
 
+        float outerFinalAngle = -(ExtraSpins * 360f + outerIndex * SegmentDeg);
+        float innerFinalAngle = (ExtraSpins * 360f + innerIndex * SegmentDeg);
 
-        float outerTarget = -(ExtraSpins * 360f + outerIndex * SegmentDeg);
-        float innerTarget =  (ExtraSpins * 360f + innerIndex * SegmentDeg);
+        float outerSpinDuration = SpinDuration + 2f;
+        float innerSpinDuration = SpinDuration + 4f;
 
-        OuterWheel_Rect.DORotate(new Vector3(0f, 0f, outerTarget), SpinDuration, RotateMode.FastBeyond360)
-                       .SetEase(Ease.OutCubic);
+        // OutSine = cosine curve — starts fast, bleeds speed naturally,
+        // arrives gently. Closest mathematical match to real friction decay.
+        audioManager.PlayWheelSpin();
+        OuterWheel_Rect.DORotate(
+            new Vector3(0f, 0f, outerFinalAngle),
+            outerSpinDuration,
+            RotateMode.FastBeyond360
+        ).SetEase(Ease.OutSine);
 
-        InnerWheel_Rect.DORotate(new Vector3(0f, 0f, innerTarget), SpinDuration, RotateMode.FastBeyond360)
-                       .SetEase(Ease.OutCubic);
+        InnerWheel_Rect.DORotate(
+            new Vector3(0f, 0f, innerFinalAngle),
+            innerSpinDuration,
+            RotateMode.FastBeyond360
+        ).SetEase(Ease.OutSine);
 
-        yield return new WaitForSeconds(SpinDuration + 0.1f);
+        // Wait for outer to land and do a tiny settle
+        yield return new WaitForSeconds(outerSpinDuration);
+        OuterWheel_Rect.DORotate(
+            new Vector3(0f, 0f, -(outerIndex * SegmentDeg)), 0.15f
+        ).SetEase(Ease.OutSine);
 
-        OuterWheel_Rect.DORotate(new Vector3(0f, 0f, -(outerIndex * SegmentDeg)), 0.15f).SetEase(Ease.OutSine);
-        InnerWheel_Rect.DORotate(new Vector3(0f, 0f,  (innerIndex * SegmentDeg)), 0.15f).SetEase(Ease.OutSine);
+        // Wait for inner to land
+        yield return new WaitForSeconds(2f);
+        InnerWheel_Rect.DORotate(
+            new Vector3(0f, 0f, (innerIndex * SegmentDeg)), 0.15f
+        ).SetEase(Ease.OutSine);
 
         yield return new WaitForSeconds(0.2f);
+        audioManager.StopGameAudio();
+        ResetBonusImage();
 
-        // OuterWheel_Rect.DOPunchScale(Vector3.one * 0.07f, 0.35f, 5, 0.5f);
-        // InnerWheel_Rect.DOPunchScale(Vector3.one * 0.07f, 0.35f, 5, 0.5f);
-
-        yield return new WaitForSeconds(0.35f);
-
+        yield return new WaitForSeconds(0.2f);
         WheelResultEffects(card, suit);
-
         ResultCardAnimation(card, suit);
+        winHistoryController.OnResult(card, suit);
     }
 
     private void WheelResultEffects(string card, string suit)
     {
-        // Green flash
-        //GreenObject.GetComponent<Image>().DOFade(0f, 0.5f).From(1f).OnComplete(() => GreenObject.SetActive(false));
-
-        // Symbol & Text flash
         Sprite textSprite = card switch
         {
             "K" => K_Text,
             "Q" => Q_Text,
             "J" => J_Text,
-            _   => null
+            _ => null
         };
         Sprite symbolSprite = suit switch
         {
             "diamonds" => Diamonds_Symbol,
-            "spades"   => Spades_Symbol,
-            "hearts"   => Hearts_Symbol,
-            "clubs"    => Clubs_Symbol,
-            _          => null
+            "spades" => Spades_Symbol,
+            "hearts" => Hearts_Symbol,
+            "clubs" => Clubs_Symbol,
+            _ => null
         };
 
         if (textSprite != null && symbolSprite != null)
         {
             SymbolGreenObject.GetComponent<Image>().sprite = symbolSprite;
             TextGreenObject.GetComponent<Image>().sprite = textSprite;
-
-            // Sequence flashSeq = DOTween.Sequence();
-            // flashSeq.Append(SymbolGreenObject.GetComponent<Image>().DOFade(1f, 0.25f).From(0f));
-            // flashSeq.Join(TextGreenObject.GetComponent<Image>().DOFade(1f, 0.25f).From(0f));
-            // flashSeq.AppendInterval(0.5f);
-            // flashSeq.Append(SymbolGreenObject.GetComponent<Image>().DOFade(0f, 0.25f));
-            // flashSeq.Join(TextGreenObject.GetComponent<Image>().DOFade(0f, 0.25f));
         }
         GreenObject.SetActive(true);
     }
@@ -160,26 +171,61 @@ public class AnimationManager : MonoBehaviour
     private void ResultCardAnimation(string card, string suit)
     {
         Debug.Log($"Result: {card} of {suit}");
+
+
+        string opBetOption = $"{card}_{suit}";
+        string mainBetOption = card;
+        string suitCapitalised = char.ToUpper(suit[0]) + suit.Substring(1);
+        string sideBetOption = $"specific_{suitCapitalised}";
+        bool isWinner = false;
+
+        if (betManager.slotTotals.ContainsKey(opBetOption) || betManager.slotTotals.ContainsKey(sideBetOption) || betManager.slotTotals.ContainsKey(mainBetOption))
+        {
+            isWinner = true;
+        }
+
         foreach (var cardObject in CardObjects)
         {
             BetButton betButton = cardObject.GetComponent<Button>().GetComponent<BetButton>();
-            if(betButton.betOption == $"{card}_{suit}")
+            bool isCardWin = betButton.betOption == opBetOption || betButton.betOption == mainBetOption || betButton.betOption == sideBetOption;
+
+            if (!isCardWin) continue;
+
+            if (isWinner && betButton.betOption == opBetOption)
             {
-                GameObject winAnimationObject = cardObject.transform.GetChild(5).gameObject;
+                betButton.WinAnimationObject.SetActive(true);
+                ImageAnimation winAnimation = betButton.WinAnimationObject.GetComponent<ImageAnimation>();
+                winAnimation.doLoopAnimation = false;
+                winAnimation.AnimationSpeed = 45f;
+                winAnimation.rendererDelegate = betButton.WinAnimationObject.GetComponent<Image>();
+                winAnimation.textureArray = new List<Sprite>(RayEffectAnimationSprites);
+                winAnimation.ResetAnimationState();
+                winAnimation.StartAnimation();
+
+                GameObject GreenImage = cardObject.transform.GetChild(0).gameObject;
+                GreenImage.SetActive(true);
+
+            }
+            else
+            {
+                GameObject winAnimationObject = cardObject.transform.GetChild(4).gameObject;
                 winAnimationObject.SetActive(true);
                 ImageAnimation winAnimation = winAnimationObject.GetComponent<ImageAnimation>();
                 winAnimation.AnimationSpeed = 45f;
                 winAnimation.rendererDelegate = winAnimationObject.GetComponent<Image>();
                 winAnimation.textureArray = new List<Sprite>(CardWinCoinAnimationSprites);
                 winAnimation.ResetAnimationState();
-                GameObject BlackBg = cardObject.transform.GetChild(6).gameObject;
+                GameObject BlackBg = cardObject.transform.GetChild(5).gameObject;
                 BlackBg.SetActive(false);
                 winAnimation.StartAnimation();
+
+                GameObject GreenImage = cardObject.transform.GetChild(0).gameObject;
+                GreenImage.SetActive(true);
             }
+
         }
     }
 
-    //  Helpers
 
     private int GetSegmentIndex(string[] layout, string value)
     {
@@ -187,25 +233,58 @@ public class AnimationManager : MonoBehaviour
             if (layout[i] == value) return i;
         return -1;
     }
-    
+
     private void ResetAnimationUI()
     {
         GreenObject.SetActive(false);
         SymbolGreenObject.GetComponent<Image>().sprite = null;
         TextGreenObject.GetComponent<Image>().sprite = null;
 
-        // Kill any in-progress punch tweens on the wheels and reset their scale,
-        // otherwise DOKill mid-punch leaves them at a non-one scale next round
+
         OuterWheel_Rect.DOKill(true);
         InnerWheel_Rect.DOKill(true);
-        // OuterWheel_Rect.localScale = Vector3.one;
-        // InnerWheel_Rect.localScale = Vector3.one;
 
         foreach (var cardObject in CardObjects)
         {
-            cardObject.transform.GetChild(4).gameObject.SetActive(false); // Bonus animation
-            cardObject.transform.GetChild(5).gameObject.SetActive(false); // Win animation
-            cardObject.transform.GetChild(6).gameObject.SetActive(true);  // BlackBg — re-enable for next round
+            cardObject.transform.GetChild(0).gameObject.SetActive(false);
+            //cardObject.transform.GetChild(6).gameObject.SetActive(false); // Bonus animation
+            cardObject.transform.GetChild(4).gameObject.SetActive(false); // Win animation
+            cardObject.transform.GetChild(5).gameObject.SetActive(true);  // BlackBg — re-enable for next round
+        }
+    }
+
+    private void ResetBonusImage()
+    {
+        foreach (var cardObject in CardObjects)
+        {
+            cardObject.transform.GetChild(6).gameObject.SetActive(false); // Bonus animation
+        }
+    }
+
+    internal void ResetAnimations()
+    {
+        foreach (var cardObject in CardObjects)
+        {
+            cardObject.transform.GetChild(0).gameObject.SetActive(false);
+            cardObject.transform.GetChild(6).gameObject.SetActive(false); // Bonus animation
+            cardObject.transform.GetChild(4).gameObject.SetActive(false); // Win animation
+
+            BetButton betButton = cardObject.GetComponent<Button>().GetComponent<BetButton>();
+            betButton.WinAnimationObject.SetActive(false);
         }
     }
 }
+
+
+
+
+// Angular Speed
+// │
+// │      ____
+// │    /      \
+// │   /         \
+// │  /            \
+// │ /                \
+// │/                   \____.__
+// └──────────────────────────────────────────── Time
+// 0%   15%  20%  65%  82%  93% 100%

@@ -29,14 +29,11 @@ public class HistoryController : MonoBehaviour
     [Header("References")]
     [SerializeField] private GameManager gameManager;
 
-    // ── State ──────────────────────────────────────────────────────────────────
     private int currentPage = 1;
     private int totalPages = 1;
     private bool waitingForData = false;
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Unity
-    // ─────────────────────────────────────────────────────────────────────────
+
     private void Start()
     {
         PrevPage_Button?.onClick.AddListener(OnPrevPage);
@@ -47,7 +44,6 @@ public class HistoryController : MonoBehaviour
             row.gameObject.SetActive(false);
     }
 
-    // Called by GameManager after SocketIOManager receives the history ack
     internal void OnDataReceived(List<HistoryRound> history, HistoryMeta meta)
     {
         waitingForData = false;
@@ -61,9 +57,7 @@ public class HistoryController : MonoBehaviour
         RefreshPageUI();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Pagination buttons
-    // ─────────────────────────────────────────────────────────────────────────
+
     private void OnPrevPage()
     {
         if (currentPage > 1) RequestPage(currentPage - 1);
@@ -82,9 +76,7 @@ public class HistoryController : MonoBehaviour
         SetNavButtonsInteractable(false); // disable while waiting
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Display
-    // ─────────────────────────────────────────────────────────────────────────
+
     private void PopulateRows(List<HistoryRound> history)
     {
         // Hide all rows first

@@ -3,28 +3,22 @@ using UnityEngine.UI;
 using TMPro;
 using System;
 
-/// <summary>
-/// Attach to each fixed history row GameObject in your History Panel.
-/// Wire the text fields in the Inspector, then add all rows to HistoryController.HistoryRows list.
-/// </summary>
+
 public class HistoryRowView : MonoBehaviour
 {
-    // ── Inspector ──────────────────────────────────────────────────────────────
-    [SerializeField] private TMP_Text SerialNo;    // e.g. "K ♠"
+    [SerializeField] private TMP_Text SerialNo;    // e.g. "K"
     [SerializeField] private TMP_Text RoundIDText;
     [SerializeField] private TMP_Text DateText;      // e.g. "26 Feb, 09:59"
     [SerializeField] private TMP_Text BetText;       // e.g. "17"
     [SerializeField] private TMP_Text WinText;       // e.g. "+17.8" or "-"
     [SerializeField] private TMP_Text PLText;        // e.g. "+0.8" or "-0.2"
-    [SerializeField] private Image SymbolImage;     // e.g. "♠" icon
+    [SerializeField] private Image SymbolImage;     // e.g.  icon
     [SerializeField] private Image TextImage;
 
     [Header("References")]
     [SerializeField] private HistoryController historyController;
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Public API
-    // ─────────────────────────────────────────────────────────────────────────
+
     internal void SetData(HistoryRound round, int rowIndex, int currentPage)
     {
         if (round == null) return;
@@ -64,9 +58,7 @@ public class HistoryRowView : MonoBehaviour
             TextImage.sprite = ToText(round.result_card);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Helpers
-    // ─────────────────────────────────────────────────────────────────────────
+
     private Sprite ToSymbol(string suit)
     {
         return suit switch

@@ -4,51 +4,36 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using DG.Tweening;
+using System;
 
 public class GameManager : MonoBehaviour
 {
-    // ── Inspector ──────────────────────────────────────────────────────────────
     [Header("Manager References")]
     [SerializeField] internal UiManager uiManager;
     [SerializeField] internal BetManager betManager;
     [SerializeField] internal SocketIOManager socketManager;
     [SerializeField] private AnimationManager animationManager;
     [SerializeField] private HistoryController historyController;
-
-    // [Header("Game Phase UI")]
-    // [SerializeField] private GameObject BettingPhase_Object;
-    // [SerializeField] private GameObject BonusPhase_Object;
-    // [SerializeField] private GameObject CardReveal_Object;
-    // [SerializeField] private GameObject CashoutPhase_Object;
-    // [SerializeField] private GameObject WaitingPhase_Object;
+    [SerializeField] private LeaderBoardController leaderBoardController;
+    [SerializeField] private WinHistoryController winHistoryController;
+    [SerializeField] private AudioManager audioManager;
 
     [Header("Card UI")]
     [SerializeField] private List<GameObject> CardBlackBg;
 
-    [Header("Bonus UI")]
-    [SerializeField] private TMP_Text BonusPosition_Text;
-    [SerializeField] private TMP_Text BonusMultiplier_Text;
-
-    [Header("Cashout UI")]
-    [SerializeField] private TMP_Text WinAmount_Text;
-    [SerializeField] private GameObject WinEffect_Object;
-    [SerializeField] private GameObject LoseEffect_Object;
-
-    [Header("Leaderboard UI")]
-    [SerializeField] private List<TMP_Text> Richest_Texts;
-    [SerializeField] private List<TMP_Text> Winners_Texts;
-
     [Header("Lobby Count UI")]
     [SerializeField] private TMP_Text LobbyCount_Text;
 
+    [Header("Popups")]
+    [SerializeField] private GameObject GeneralPopup;
 
-    // ── State ──────────────────────────────────────────────────────────────────
     internal GamePhase currentPhase = GamePhase.Waiting;
     private string currentRoundId = "";
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Game Phases Enum
-    // ─────────────────────────────────────────────────────────────────────────
+    internal string lastResultCard = "";
+    internal string lastResultSuit = "";
+
+
     internal enum GamePhase
     {
         Waiting,
@@ -58,9 +43,11 @@ public class GameManager : MonoBehaviour
         Cashout
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Init — called by SocketIOManager after game:init
-    // ─────────────────────────────────────────────────────────────────────────
+    // void Start()
+    // {
+    //     StartCoroutine(ShowPopup("Hello"));
+    // }
+
     internal void OnInitData(GameData gameData, Player player)
     {
         Debug.Log("GameManager: Init data received");
@@ -68,107 +55,129 @@ public class GameManager : MonoBehaviour
         uiManager.UpdateBalance(player.balance);
         uiManager.SetInitialGameData(gameData);
         SetPhase(GamePhase.Waiting);
+        uiManager.SetPhase();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Phase 1 — BETTING
-    //  Triggered by: game:round_start
-    // ─────────────────────────────────────────────────────────────────────────
+    /// <summary>
+    /// Called when the server sends ON ROOM ENTER payload.
+    /// Pass the stats list from the payload so history is pre-populated.
+    /// </summary>
+    internal void OnRoomEnter(List<string> stats, Leaderboards leaderboards)
+    {
+        winHistoryController.ResyncInfoFadeAnimation();
+        Debug.Log("GameManager: Room entered, loading stats history");
+
+        if (winHistoryController != null && stats != null)
+            winHistoryController.LoadStats(stats);
+
+        if (leaderboards != null)
+            UpdateLeaderboardUI(leaderboards);
+    }
+
     internal void OnRoundStart(string roundId)
     {
         Debug.Log($"GameManager: Round started → {roundId}");
         currentRoundId = roundId;
 
+        lastResultCard = "";
+        lastResultSuit = "";
+
+        uiManager.coinSelector.interactable = true;
         betManager.OnRoundStart();
         uiManager.RoundStart();
         SetPhase(GamePhase.Betting);
+        audioManager.PlayPlaceBetNow();
+        uiManager.SetPhase();
+        animationManager.ResetAnimations();
         ToggleCardBlackBg(false);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Timer sync — called every game:betting_timer tick
-    // ─────────────────────────────────────────────────────────────────────────
-    internal void OnTimerTick(float timeRemainingMs)
+
+    internal void OnTimerTick(int timeRemainingMs)
     {
-        float seconds = timeRemainingMs / 1000f;
-        int displaySeconds = Mathf.CeilToInt(seconds);
-        uiManager.UpdateTimer(displaySeconds);
+        // float seconds = timeRemainingMs / 1000f;
+        // int displaySeconds = Mathf.RoundToInt(seconds);
+        uiManager.UpdateTimer(timeRemainingMs);
+        audioManager.PlayTimer();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Phase 2 — BONUS REVEAL
-    //  Triggered by: game:bonus
-    // ─────────────────────────────────────────────────────────────────────────
-    internal void OnBonus(int bonusPosition, int bonusMultiplier)
+
+    internal void OnBonus(Bonus bonusData)
     {
-        Debug.Log($"GameManager: Bonus → position:{bonusPosition} multiplier:{bonusMultiplier}x");
+        uiManager.RetractCoins();
+        uiManager.coinSelector.interactable = false;
         betManager.SlideOutToLeft(betManager.BetButtonPanel);
         SetPhase(GamePhase.Bonus);
-        uiManager.BetLocked(bonusPosition, bonusMultiplier);
+        audioManager.PlayBetLocked();
+        uiManager.SetPhase();
+        foreach (var d in bonusData.bonus)
+        {
+            Debug.Log($"GameManager: Bonus → key:{d.Key} value:{d.Value}");
+            string bonusPosition = d.Key;
+            int bonusMultiplier = d.Value;
+            uiManager.BetLocked(bonusPosition, bonusMultiplier);
+        }
         ToggleCardBlackBg(true);
-        //ShowBonusUI(bonusPosition, bonusMultiplier);
     }
 
-    private void ShowBonusUI(int position, int multiplier)
-    {
-        if (BonusPosition_Text != null)
-            BonusPosition_Text.text = $"Position: {position}";
 
-        if (BonusMultiplier_Text != null)
-            BonusMultiplier_Text.text = $"{multiplier}x";
-
-        // Punch-scale animation on bonus panel
-        // if (BonusPhase_Object != null)
-        //     BonusPhase_Object.transform.DOPunchScale(Vector3.one * 0.15f, 0.4f, 5, 0.5f);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Phase 3 — CARD RESULT
-    //  Triggered by: game:card_result
-    // ─────────────────────────────────────────────────────────────────────────
     internal void OnCardResult(string resultCard, string resultSuit, string combination)
     {
-        //Debug.Log($"GameManager: Card result → {combination}");
+        lastResultCard = resultCard;
+        lastResultSuit = resultSuit;
 
         SetPhase(GamePhase.CardReveal);
+        uiManager.SetPhase();
         animationManager.WheelAnimation(resultCard, resultSuit);
+
+        // if (winHistoryController != null)
+        //     winHistoryController.OnResult(resultCard, resultSuit);
+
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Phase 4 — CASHOUT
-    //  Triggered by: game:cashout
-    // ─────────────────────────────────────────────────────────────────────────
     internal void OnCashout(double winAmount, double balance, List<Payout> payouts, Leaderboards leaderboards)
     {
         Debug.Log($"GameManager: Cashout → win:{winAmount} balance:{balance}");
 
         SetPhase(GamePhase.Cashout);
+        uiManager.SetPhase();
 
-        // Update balance via betManager (also animates chips)
+        // Handle current player's win animation
         betManager.OnCashout(winAmount, balance);
         uiManager.UpdateBalance(balance);
+        //uiManager.ShowCashoutUI(winAmount);
 
-        // Show win/lose
-        uiManager.ShowCashoutUI(winAmount);
+        // Handle other players' chips
+        if (payouts != null)
+        {
+            // Build a set of usernames who have a win entry (win > 0)
+            foreach (var payout in payouts)
+            {
+                // Skip current player — already handled above
+                if (socketManager != null && payout.username == socketManager.playerdata?.username)
+                    continue;
 
-        // Update leaderboard
+                RectTransform destination = leaderBoardController.GetOriginForUsername(payout.username);
+                betManager.OnOtherPlayerCashout(payout.username, payout.win, destination);
+            }
+
+            // Any other player whose chip is still tracked but had NO payout entry → they lost
+            betManager.PopUnpaidOtherPlayerChips(payouts, socketManager?.playerdata?.username);
+        }
+
         if (leaderboards != null)
             UpdateLeaderboardUI(leaderboards);
     }
 
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Phase 5 — ROUND END / WAITING
-    //  Triggered by: game:round_end
-    // ─────────────────────────────────────────────────────────────────────────
     internal void OnRoundEnd(string roundId)
     {
         Debug.Log($"GameManager: Round ended → {roundId}");
 
         betManager.OnRoundEnd();
         SetPhase(GamePhase.Waiting);
+        uiManager.SetPhase();
 
-        // Clean up result UI
         ResetResultUI();
     }
 
@@ -177,29 +186,13 @@ public class GameManager : MonoBehaviour
 
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Lobby Count
-    //  Triggered by: game:lobby_count
-    // ─────────────────────────────────────────────────────────────────────────
-    internal void OnLobbyCount(string level, int count)
+    internal void OnLobbyCount(int count)
     {
-        Debug.Log($"GameManager: Lobby count → {level}: {count}");
-
-        // switch (level)
-        // {
-        //     case "casual": if (CasualCount_Text != null) CasualCount_Text.text = count.ToString(); break;
-        //     case "novice": if (NoviceCount_Text != null) NoviceCount_Text.text = count.ToString(); break;
-        //     case "expert": if (ExpertCount_Text != null) ExpertCount_Text.text = count.ToString(); break;
-        //     case "high_roller": if (HighRollerCount_Text != null) HighRollerCount_Text.text = count.ToString(); break;
-        // }
         if (LobbyCount_Text != null)
             LobbyCount_Text.text = $"{count}";
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Leaderboard Update
-    //  Triggered by: game:leaderboard_update
-    // ─────────────────────────────────────────────────────────────────────────
+
     internal void OnLeaderboardUpdate(Leaderboards leaderboards)
     {
         Debug.Log("GameManager: Leaderboard updated");
@@ -208,45 +201,25 @@ public class GameManager : MonoBehaviour
 
     private void UpdateLeaderboardUI(Leaderboards leaderboards)
     {
-        // if (leaderboards?.richest != null)
-        // {
-        //     for (int i = 0; i < Richest_Texts.Count && i < leaderboards.richest.Count; i++)
-        //     {
-        //         var entry = leaderboards.richest[i];
-        //         Richest_Texts[i].text = $"{entry.rank}. {entry.username}  {FormatAmount(entry.balance)}";
-        //     }
-        // }
-
-        // if (leaderboards?.winners != null)
-        // {
-        //     for (int i = 0; i < Winners_Texts.Count && i < leaderboards.winners.Count; i++)
-        //     {
-        //         var entry = leaderboards.winners[i];
-        //         Winners_Texts[i].text = $"{entry.rank}. {entry.username}  {entry.totalWins} wins";
-        //     }
-        // }
+        leaderBoardController.OnLeaderBoardDataReceived(leaderboards);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Phase switcher — controls which screen is visible
-    // ─────────────────────────────────────────────────────────────────────────
+
+    internal void OnOtherPlayerBet(string betOption, string username, float amount)
+    {
+        // Look up the leaderboard row for this player — null if they're not on the board
+        RectTransform origin = leaderBoardController.GetOriginForUsername(username);
+        betManager.SpawnOtherPlayerBetChip(betOption, origin, amount, username);
+    }
+
+
     private void SetPhase(GamePhase phase)
     {
         currentPhase = phase;
-
-        // if (BettingPhase_Object != null) BettingPhase_Object.SetActive(phase == GamePhase.Betting);
-        // if (BonusPhase_Object != null) BonusPhase_Object.SetActive(phase == GamePhase.Bonus);
-        // if (CardReveal_Object != null) CardReveal_Object.SetActive(phase == GamePhase.CardReveal);
-        // if (CashoutPhase_Object != null) CashoutPhase_Object.SetActive(phase == GamePhase.Cashout);
-        // if (WaitingPhase_Object != null) WaitingPhase_Object.SetActive(phase == GamePhase.Waiting);
-
         Debug.Log($"GameManager: Phase → {phase}");
-        
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Level Selection — called from UI buttons
-    // ─────────────────────────────────────────────────────────────────────────
+
     internal void SelectLevel(string level)
     {
         betManager.currentLevel = level;
@@ -254,12 +227,7 @@ public class GameManager : MonoBehaviour
         Debug.Log($"GameManager: Joined level → {level}");
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Bet Action Hooks — wire UI buttons to these
-    // ─────────────────────────────────────────────────────────────────────────
-    // ─────────────────────────────────────────────────────────────────────────
-    //  History — called by SocketIOManager after BET_HISTORY ack
-    // ─────────────────────────────────────────────────────────────────────────
+
     internal void OnHistoryReceived(System.Collections.Generic.List<HistoryRound> history, HistoryMeta meta)
     {
         historyController.OnDataReceived(history, meta);
@@ -282,5 +250,98 @@ public class GameManager : MonoBehaviour
             if (bg != null)
                 bg.SetActive(show);
         }
+    }
+
+    internal Wagers GetWagers()
+    {
+        return socketManager.initialData?.wagers;
+    }
+
+    internal LevelBetLimit GetLevelBetLimit()
+    {
+        return socketManager.initialData?.levelBetLimit;
+    }
+
+    private Coroutine _popupCoroutine;
+
+    internal void ShowPopupMessage(string message)
+    {
+        if (_popupCoroutine != null)
+        {
+            StopCoroutine(_popupCoroutine);
+            _popupCoroutine = null;
+
+            // Kill tweens and reset immediately
+            RectTransform rect = GeneralPopup.GetComponent<RectTransform>();
+            rect.DOKill(true); // true = complete immediately, snaps to end position
+            GeneralPopup.SetActive(false);
+        }
+
+        _popupCoroutine = StartCoroutine(ShowPopup(message));
+    }
+
+    internal IEnumerator ShowPopup(string message)
+    {
+        TMP_Text messageText = GeneralPopup.GetComponentInChildren<TMP_Text>();
+        messageText.text = message;
+
+        yield return StartCoroutine(SlideInFromLeft(GeneralPopup));
+        yield return new WaitForSeconds(1.7f);
+        yield return StartCoroutine(SlideOutToRight(GeneralPopup));
+
+        _popupCoroutine = null;
+    }
+
+    private IEnumerator SlideInFromLeft(GameObject panel)
+    {
+        if (panel == null) yield break;
+
+        panel.SetActive(true);
+
+        RectTransform rect = panel.GetComponent<RectTransform>();
+
+        // Kill ALL tweens including any scale tweens
+        rect.DOKill();
+        DOTween.Kill(rect, true);
+
+        // Hard reset scale and lock it
+        rect.localScale = Vector3.one;
+
+        float endX = rect.anchoredPosition.x;
+        rect.anchoredPosition = new Vector2(endX - 1080, rect.anchoredPosition.y);
+
+        bool done = false;
+        rect.DOAnchorPosX(endX, 0.8f)
+            .SetEase(Ease.OutCubic)
+            .OnComplete(() =>
+            {
+                rect.localScale = Vector3.one; // enforce again after tween completes
+                done = true;
+            });
+
+        yield return new WaitUntil(() => done);
+    }
+
+    internal IEnumerator SlideOutToRight(GameObject panel)
+    {
+        if (panel == null) yield break;
+
+        RectTransform rect = panel.GetComponent<RectTransform>();
+        rect.localScale = Vector3.one; // lock scale before animating
+
+        float startX = rect.anchoredPosition.x;
+
+        bool done = false;
+        rect.DOAnchorPosX(startX + 1080, 0.8f)
+            .SetEase(Ease.InCubic)
+            .OnComplete(() =>
+            {
+                panel.SetActive(false);
+                rect.anchoredPosition = new Vector2(startX, rect.anchoredPosition.y);
+                // NO scale changes here
+                done = true;
+            });
+
+        yield return new WaitUntil(() => done);
     }
 }

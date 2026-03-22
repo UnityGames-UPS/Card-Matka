@@ -12,6 +12,7 @@ using Best.SocketIO.Events;
 
 using System.Runtime.Serialization;
 using Best.HTTP.Shared;
+using NUnit.Framework.Interfaces;
 
 public class SocketIOManager : MonoBehaviour
 {
@@ -23,27 +24,25 @@ public class SocketIOManager : MonoBehaviour
 
     [SerializeField]
     internal BetManager betManager;
+    [SerializeField] private InGamePopupManager inGamePopupManager;
 
     internal Root roomData;
     internal Root gameLoopData;
-    internal Root gameCashOut;
     internal Root BetChipData;
-    internal Root BonusData;
+    internal Bonus BonusData;
     internal Root OtherPlayerBetData;
     internal Root CashoutData;
     internal Root doubleBetData;
-    internal Root HistoryPageData;
+    internal Root LeaderBoardData;
     internal Root ReturnHome;
     internal Root TotalPlayerCountData;
     internal Root TimeRemaining;
-    internal Root CardDelt;
+    internal Root CashoutTime;
     internal Root CardData;
     internal GameData initialData = null;
     // internal Payload resultData = null;
     internal Player playerdata = null;
-    [SerializeField]
-    internal List<string> bonusdata = null;
-    internal List<double> MultiplierList;
+
     //WebSocket currentSocket = null;
     internal bool isResultdone = false;
     // protected string nameSpace="game"; //BackendChanges
@@ -60,8 +59,7 @@ public class SocketIOManager : MonoBehaviour
     private string savedToken;
 
     [SerializeField] internal JSFunctCalls JSManager;
-    [SerializeField]
-    private string testToken;
+    [SerializeField] private string testToken;
     protected string gameID = "ml-ab";
     //protected string gameID = "";
 
@@ -81,10 +79,11 @@ public class SocketIOManager : MonoBehaviour
     private float pongTimeout = 3f;
     private bool waitingForPong = false;
     private int missedPongs = 0;
-    private const int MaxMissedPongs = 5;
+    private const int MaxMissedPongs = 20;
     internal bool loadingPageLoading = false;
     internal bool NormalStart = false;
     internal bool DontDisplayDisconected = false;
+    private bool isFirstRoom = true;
     private Coroutine PingRoutine; //Back2 end
     [SerializeField] private GameObject RaycastBlocker;
 
@@ -114,12 +113,13 @@ public class SocketIOManager : MonoBehaviour
         Debug.Log("Received data: " + jsonData);
 
         // Parse the JSON data
-        //var data = JsonUtility.FromJson<AuthTokenData>(jsonData);
-        //SocketURI = data.socketURL;
-        //myAuth = data.cookie;
+        var data = JsonUtility.FromJson<AuthTokenData>(jsonData);
+        SocketURI = data.socketURL;
+        myAuth = data.cookie;
         //  nameSpace = data.nameSpace;
         // Proceed with connecting to the server using myAuth and socketURL
     }
+
 
     string myAuth = null;
 
@@ -211,6 +211,7 @@ public class SocketIOManager : MonoBehaviour
         gameSocket.On<string>("game:init", ManageInitData);
         gameSocket.On<string>("game:round_start", OnGameLoopStarted);
         gameSocket.On<string>("game:betting_timer", OnListenTimeEvent);
+        gameSocket.On<string>("game:cashout_timer", OnListenCashOutTimeEvent);
         gameSocket.On<string>("game:bet_placed", ManageOtherPlayerbets);
         gameSocket.On<string>("game:bet_cancel", ManageBetCancel);
         gameSocket.On<string>("game:bonus", ManageBonus);
@@ -260,7 +261,10 @@ public class SocketIOManager : MonoBehaviour
     {
         Debug.LogWarning("⚠️ Disconnected from server.");
         isConnected = false;
-        uiManager.DisconnectionPopup();
+        if (!uiManager.isExit)
+        {
+            uiManager.DisconnectionPopup();
+        }
         ResetPingRoutine();
     } //Back2 end
     private void OnError(Error err)
@@ -273,7 +277,14 @@ public class SocketIOManager : MonoBehaviour
     private void OnListenTimeEvent(string data)
     {
         TimeRemaining = JsonConvert.DeserializeObject<Root>(data);
+        Debug.Log(data);
         gameManager.OnTimerTick(TimeRemaining.timeRemaining);
+    }
+    private void OnListenCashOutTimeEvent(string data)
+    {
+        CashoutTime = JsonConvert.DeserializeObject<Root>(data);
+        Debug.Log(data);
+        gameManager.OnTimerTick(CashoutTime.timeRemaining);
     }
     private void OnListenCard(string data)
     {
@@ -338,7 +349,7 @@ public class SocketIOManager : MonoBehaviour
         if (!isFocused && !disconnectionShown)
         {
             // disconnectionShown = true;  // Prevent future runs
-            //  uiManager.DisconnectionPopup();
+            uiManager.DisconnectionPopup();
             Debug.Log("Disconnected: No Focus for 120 seconds");
         }
 
@@ -518,11 +529,13 @@ public class SocketIOManager : MonoBehaviour
         //         // else
         //         //     Debug.LogWarning("initData: bets list is null.");
 
-        // #if UNITY_WEBGL && !UNITY_EDITOR
-        //             JSManager.SendCustomMessage("OnEnter");
-        // #endif
-        SendRoomSelection("casual");
+#if UNITY_WEBGL && !UNITY_EDITOR
+                    JSManager.SendCustomMessage("OnEnter");
+#endif
+        uiManager.LoadingScreen_Object.SetActive(true);
         gameManager.OnInitData(initialData, playerdata);
+        SendRoomSelection("casual");
+        setInitialData();
     }
 
     private void ParseResponse(string jsonObject)
@@ -705,17 +718,17 @@ public class SocketIOManager : MonoBehaviour
     }
     internal void SendHome()
     {
-        // SendRoom message = new SendRoom();
-        // message.betPayload = new Payload();
-        // message.type = "HOME";
-        // // message.betPayload.level = Room;
-        // loadingPageLoading = false;
-        // NormalStart = false;
-        // DontDisplayDisconected = true;
-        // string json = JsonUtility.ToJson(message);
-        // Debug.Log("Return home: " + json);
-        // // SendDataWithNamespace("request", json);
-        // gameSocket.ExpectAcknowledgement<string>(OnHome).Emit("request", json);
+        SendRoom message = new SendRoom();
+        message.payload = new Payload();
+        message.type = "HOME";
+        // message.betPayload.level = Room;
+        loadingPageLoading = false;
+        NormalStart = false;
+        DontDisplayDisconected = true;
+        string json = JsonUtility.ToJson(message);
+        Debug.Log("Return home: " + json);
+        // SendDataWithNamespace("request", json);
+        gameSocket.ExpectAcknowledgement<string>(OnHome).Emit("request", json);
     }
 
     internal void SendHistory(int page)
@@ -731,15 +744,17 @@ public class SocketIOManager : MonoBehaviour
 
     void OnHome(string json)
     {
-        // gameManager.ClearAllBets();
-        // Debug.Log("Home Receved: " + json);
-        // ReturnHome = JsonUtility.FromJson<Root>(json);
-        // gameManager.SetPlayerCountOnReturn(ReturnHome.betPayload.lobby, ReturnHome.betPayload.balance);
-        // playerdata.balance = ReturnHome.betPayload.balance;
-        // StartCoroutine(gameManager.ShowLoadingPage("Loading...."));
-        // gameManager.GamePage.SetActive(false);
-        // gameManager.HomePage.SetActive(true);
-        //  Invoke(nameof(Reconnect), 0.2f);
+        ///gameManager.ClearAllBets();
+        betManager.OnHome();
+        Debug.Log("Home Receved: " + json);
+        ReturnHome = JsonUtility.FromJson<Root>(json);
+        //gameManager.SetPlayerCountOnReturn(ReturnHome.betPayload.lobby, ReturnHome.betPayload.balance);
+        //playerdata.balance = ReturnHome.Payload.balance;
+        inGamePopupManager.isHome = true;
+        //StartCoroutine(gameManager.ShowLoadingPage("Loading...."));
+        //gameManager.GamePage.SetActive(false);
+        //gameManager.HomePage.SetActive(true);
+        //Invoke(nameof(Reconnect), 0.2f);`
 
     }
     void OnHistory(string json)
@@ -770,6 +785,7 @@ public class SocketIOManager : MonoBehaviour
         }
         else
         {
+            gameManager.ShowPopupMessage(doubleBetData.Payload.message);
             Debug.LogWarning("Double failed: " + doubleBetData.betPayload?.message);
         }
     }
@@ -785,6 +801,7 @@ public class SocketIOManager : MonoBehaviour
         }
         else
         {
+            gameManager.ShowPopupMessage(doubleBetData.Payload.message);
             Debug.LogWarning("Repeat failed: " + doubleBetData.betPayload?.message);
         }
     }
@@ -799,6 +816,7 @@ public class SocketIOManager : MonoBehaviour
         }
         else
         {
+            gameManager.ShowPopupMessage(doubleBetData.Payload.message);
             Debug.LogWarning("Cancel failed: " + doubleBetData.betPayload?.message);
         }
     }
@@ -810,19 +828,30 @@ public class SocketIOManager : MonoBehaviour
         {
             //if (playerdata != null) 
             playerdata.balance = doubleBetData.Payload.balance;
+            double undoAmount = doubleBetData.Payload.bet?.amount ?? 0;
             betManager.OnUndoDone(doubleBetData.Payload.bet?.betOption,
+                                   undoAmount,
                                    doubleBetData.Payload.balance, doubleBetData.Payload.totalBet);
         }
         else
         {
+            gameManager.ShowPopupMessage(doubleBetData.Payload.message);
             Debug.LogWarning("Undo failed: " + doubleBetData.betPayload?.message);
         }
     }
     void OnRoomEnter(string json)
     {
+        uiManager.LoadingScreen_Object.SetActive(false);
         Debug.Log("ON ROOM ENTER : " + json);
         roomData = JsonConvert.DeserializeObject<Root>(json);
         uiManager.SetInitialRoomJoinData(roomData, initialData);
+        inGamePopupManager.isHome = false;
+        if (isFirstRoom)
+        {
+            isFirstRoom = false;
+            uiManager.OpenPopup(uiManager.StartupPanel);
+        }
+        gameManager.OnRoomEnter(roomData.Payload.stats, roomData.Payload.leaderboards);
         //if (roomData.success == false)
         //{
         //StartCoroutine(gameManager.ShowLoadingPage("Loading...."));
@@ -840,9 +869,14 @@ public class SocketIOManager : MonoBehaviour
     void ManageOtherPlayerbets(string data)
     {
         Debug.Log("Bet Placed OtherPlayer\n" + data);
-        OtherPlayerBetData = JsonUtility.FromJson<Root>(data);
-        //gameManager.ManageBrodcastBetsOtherPlayers(BonusData);
+        OtherPlayerBetData = JsonConvert.DeserializeObject<Root>(data);
 
+        string betOption = OtherPlayerBetData?.betOption;
+        string username = OtherPlayerBetData?.username;
+        float amount = OtherPlayerBetData.amount;
+
+        if (!string.IsNullOrEmpty(betOption) && playerdata.username != username)
+            gameManager.OnOtherPlayerBet(betOption, username, amount);
     }
 
     void ManageBetCancel(string data)
@@ -855,8 +889,8 @@ public class SocketIOManager : MonoBehaviour
     void ManageBonus(string data)
     {
         Debug.Log("Bonus\n" + data);
-        BonusData = JsonConvert.DeserializeObject<Root>(data);
-        gameManager.OnBonus(BonusData.bonusPosition, BonusData.bonusMultiplier);
+        BonusData = JsonConvert.DeserializeObject<Bonus>(data);
+        gameManager.OnBonus(BonusData);
     }
 
     void OnGameLoopStarted(string json)
@@ -870,6 +904,7 @@ public class SocketIOManager : MonoBehaviour
         gameLoopData = JsonConvert.DeserializeObject<Root>(json);
         betManager.OnRoundStart();
         gameManager.OnRoundStart(gameLoopData.roundId);
+        gameManager.OnLobbyCount(gameLoopData.playerCount);
     }
     void OnGameLoopEnd(string data)
     {
@@ -899,20 +934,24 @@ public class SocketIOManager : MonoBehaviour
         }
 
         if (playerdata != null) playerdata.balance = balance;
-        betManager.OnCashout(win, balance);
+        //betManager.OnCashout(win, balance);
         gameManager.OnCashout(win, balance, CashoutData.payouts, CashoutData.leaderboards);
     }
     void OnLobbyCount(string data)
     {
         Debug.Log("player Count\n" + data);
-        //TotalPlayerCountData = JsonUtility.FromJson<Root>(data);
-        //gameManager.SetPlayerCountOnReturn(TotalPlayerCountData.lobby, playerdata.balance);
-
+        TotalPlayerCountData = JsonUtility.FromJson<Root>(data);
+        if (TotalPlayerCountData.Payload != null)
+            gameManager.OnLobbyCount(TotalPlayerCountData.Payload.count);
+        else
+            gameManager.OnLobbyCount(TotalPlayerCountData.playerCount);
     }
 
     void UpdateLeaderBoard(string data)
     {
         Debug.Log("LeaderBoard Update\n" + data);
+        LeaderBoardData = JsonUtility.FromJson<Root>(data);
+        gameManager.OnLeaderboardUpdate(LeaderBoardData.leaderboards);
     }
 
     private void OnBetAcknowledged(string data)
@@ -927,12 +966,21 @@ public class SocketIOManager : MonoBehaviour
         }
         else
         {
+            gameManager.ShowPopupMessage(BetChipData.Payload.message);
             Debug.LogWarning("PlaceBet failed: " + BetChipData.betPayload?.message);
         }
     }
 }
 
 // Root myDeserializedClass = JsonConvert.DeserializeObject<Root>(myJsonResponse);
+
+[Serializable]
+public class AuthTokenData
+{
+    public string cookie;
+    public string socketURL;
+    public string nameSpace;
+}
 
 [Serializable]
 public class Bets
@@ -966,7 +1014,7 @@ public class GameData
     public Wagers wagers { get; set; }
     public Lobby lobby { get; set; }
     public Leaderboards leaderboards { get; set; }
-    public List<object> stats { get; set; }
+    public List<string> stats { get; set; }
     public BonusMultipliers bonusMultipliers { get; set; }
 
 }
@@ -1158,15 +1206,17 @@ public class Root
 
 
     //timer
+
     public string roundId { get; set; }
     public long serverTime { get; set; }
     public long bettingEndTime { get; set; }
-    public float timeRemaining { get; set; }
+    public int timeRemaining { get; set; }
+
+    //Cashout Timer
+    public long cashoutEndTime { get; set; }
 
     //Bonus 
-    //public string roundId { get; set; }
-    public int bonusPosition { get; set; }
-    public int bonusMultiplier { get; set; }
+    public Bonus bonus { get; set; }
 
     //Card Result
     //public string roundId { get; set; }
@@ -1181,7 +1231,25 @@ public class Root
     //Room Left
     public string roomId { get; set; }
 
+    //Lobby Count
+    public Lobby lobby { get; set; }
+
+    //other player bet
+    public string username { get; set; }
+    public string betId { get; set; }
+    public string betType { get; set; }
+    public string betOption { get; set; }
+    public float amount { get; set; }
+
 }
+
+
+public class Bonus
+{
+    public string roundId { get; set; }
+    public Dictionary<string, int> bonus { get; set; }
+}
+
 
 
 [Serializable]
@@ -1240,6 +1308,14 @@ public class Payload
     public double totalDelta { get; set; }
     public int cancelledCount { get; set; }
     public double totalRefund { get; set; }
+
+    //On Home
+    public string message { get; set; }
+    public Lobby lobby { get; set; }
+
+    //Lobby Count
+    public int count { get; set; }
+
 }
 
 [Serializable]
@@ -1324,12 +1400,6 @@ public class Bet
 }
 
 public class Richest
-{
-    public string username { get; set; }
-    public double balance { get; set; }
-    public int rank { get; set; }
-}
-public class Winners
 {
     public string username { get; set; }
     public double balance { get; set; }

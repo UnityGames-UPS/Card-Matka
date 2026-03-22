@@ -11,8 +11,6 @@ public class Chip : MonoBehaviour
     [SerializeField] private Image chipCoinImg;
     [SerializeField] private Button buttonSelection;
     [SerializeField] internal int ChipIndex;
-    [SerializeField] internal GameObject chipPrefab;
-
     void Start()
     {
         if (buttonSelection) buttonSelection.onClick.RemoveAllListeners();
@@ -21,7 +19,7 @@ public class Chip : MonoBehaviour
 
     void OnButtonClick()
     {
-        if (uiManager) uiManager.OnCoinSelected(buttonSelection, ChipIndex , chipPrefab);
+        if (uiManager) uiManager.OnCoinSelected(buttonSelection, ChipIndex);
     }
     internal void SetData(Sprite coinImg, string coinValue)
     {

@@ -6,7 +6,6 @@ using DG.Tweening;
 [RequireComponent(typeof(Button))]
 public class BetButton : MonoBehaviour
 {
-    // ── Inspector ──────────────────────────────────────────────────────────────
     [Header("Bet Info")]
     [Tooltip("'main_bets' | 'side_bets' | 'op_bets'")]
     [SerializeField] internal string betType;
@@ -19,8 +18,8 @@ public class BetButton : MonoBehaviour
     [SerializeField] internal GameObject RedBg;
     [SerializeField] internal TMP_Text totalBetLabel;
     [SerializeField] private Button slotButton;
+    [SerializeField] internal GameObject WinAnimationObject;
 
-    // ── Private ────────────────────────────────────────────────────────────────
     private BetManager betManager;
 
     internal void Init(BetManager manager)
@@ -37,7 +36,6 @@ public class BetButton : MonoBehaviour
     private void OnButtonClicked()
     {
         transform.DOKill(false);
-        transform.DOPunchScale(Vector3.one * 0.12f, 0.25f, 5, 0.5f);
         betManager.PlaceBet(this);
     }
 }
