@@ -136,7 +136,11 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.burst": {
+<<<<<<< HEAD
       "version": "1.8.28",
+=======
+      "version": "1.8.25",
+>>>>>>> 6b880f9 (B2B operation complete)
       "depth": 1,
       "source": "registry",
       "dependencies": {
