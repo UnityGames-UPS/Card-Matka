@@ -439,7 +439,7 @@ public class UiManager : MonoBehaviour
 
             if (ToggleStartupPanel != null)
             {
-                PlayerPrefs.SetInt(PREF_STARTUP, ToggleStartupPanel.isOn ? 1 : 0);
+                PlayerPrefs.SetInt(PREF_STARTUP, ToggleStartupPanel.isOn ? 0 : 1);
                 PlayerPrefs.Save();
             }
         });
@@ -502,7 +502,7 @@ public class UiManager : MonoBehaviour
         {
             //StartupPanel.SetActive(showStartup);
             ToggleStartupPanel.onValueChanged.RemoveAllListeners();
-            ToggleStartupPanel.isOn = showStartup;
+            ToggleStartupPanel.isOn = !showStartup; // toggle ON = don't show next time, toggle OFF = show
             ToggleStartupPanel.onValueChanged.AddListener(OnStartupToggleChanged);
         }
         if (StartupPanel != null)
@@ -514,7 +514,8 @@ public class UiManager : MonoBehaviour
 
     private void OnStartupToggleChanged(bool value)
     {
-        PlayerPrefs.SetInt(PREF_STARTUP, value ? 1 : 0);
+        // toggle ON means "don't show startup", so showStartup = !value
+        PlayerPrefs.SetInt(PREF_STARTUP, value ? 0 : 1);
         PlayerPrefs.Save();
     }
 
@@ -1047,7 +1048,7 @@ public class UiManager : MonoBehaviour
         }
         if (gameManager.currentPhase == GameManager.GamePhase.Cashout)
         {
-            NextRoundTimer_Object.SetActive(true);
+            LockedTimer_Object.SetActive(true);
         }
     }
 

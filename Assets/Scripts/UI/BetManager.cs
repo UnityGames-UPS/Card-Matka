@@ -94,8 +94,6 @@ public class BetManager : MonoBehaviour
     internal void OnRoundStart()
     {
         isBettingOpen = true;
-        ClearAllChips();
-        ClearAllOtherPlayerChips();
         currentTotalBet = 0;
         RefreshTotalLabel();
         Debug.Log("Has placed bet : " + hasPlacedBet);
@@ -113,6 +111,7 @@ public class BetManager : MonoBehaviour
             hasPlacedBet = true;
         }
         ClearAllChips();
+        ClearAllOtherPlayerChips();
         currentTotalBet = 0;
         RefreshTotalLabel();
     }
@@ -660,6 +659,11 @@ public class BetManager : MonoBehaviour
 
                 // Seed Phase 2 with the existing sitting bet chips
                 phase2Chips[betOption] = new List<GameObject>(existingChips);
+
+                // Reparent winning chips to WinAnimationObject — same as our player cashout
+                foreach (var chip in existingChips)
+                    if (chip != null)
+                        chip.transform.SetParent(bb.WinAnimationObject.transform.GetComponentInParent<RectTransform>(), false);
 
                 // Proportional win share for this slot
                 double slotWeight = totalWeight > 0

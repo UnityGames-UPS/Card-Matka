@@ -228,14 +228,20 @@ public class InGamePopupManager : MonoBehaviour
         uiManager.LoadingScreen_Object.GetComponentInChildren<ImageAnimation>().StartAnimation();
         CloseLevelPopup();
         SetBetLimit();
+
         yield return new WaitForSeconds(1f);
         socketIOManager.SendHome();
         yield return new WaitUntil(() => isHome);
+
         yield return new WaitForSeconds(1f);
-        // Send selected level to server
         gameManager.SelectLevel(currentLevel);
         yield return new WaitUntil(() => !isHome);
-        yield return new WaitForSeconds(1f);
+
+
+        yield return new WaitUntil(() => gameManager.currentPhase == GameManager.GamePhase.Betting);
+
+
+        yield return null;
 
         uiManager.LoadingScreen_Object.SetActive(false);
     }

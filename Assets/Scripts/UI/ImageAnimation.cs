@@ -41,8 +41,13 @@ public class ImageAnimation : MonoBehaviour
     // ── Coroutine handle so we can stop it cleanly ───────────────────────────
     private Coroutine _animCoroutine;
 
-    // ── Tracks whether we were playing when focus was lost ───────────────────
-    private bool _wasPlayingOnFocusLost = false;
+    // NOTE: OnApplicationFocus and OnApplicationPause have been intentionally
+    // removed. "Run In Background" is enabled in Player Settings, so Unity
+    // continues ticking in background tabs. Those callbacks were pausing the
+    // coroutine on tab-switch and resuming on return, which caused all the
+    // queued WaitForSecondsRealtime delays to fire at once — producing the
+    // "animation burst" on tab focus. With them gone the animation simply
+    // keeps running continuously regardless of tab focus, which is correct.
 
     private void Awake()
     {
@@ -64,60 +69,18 @@ public class ImageAnimation : MonoBehaviour
         StopAnimation();
     }
 
-    // ── Tab-switch / app-pause handlers ─────────────────────────────────────
-    // OnApplicationFocus fires on both mobile and desktop browser tab switches.
-    private void OnApplicationFocus(bool hasFocus)
-    {
-        if (!hasFocus)
-        {
-            // Lost focus — pause if playing so frames don't queue up
-            if (currentAnimationState == ImageState.PLAYING)
-            {
-                _wasPlayingOnFocusLost = true;
-                PauseAnimationInternal();
-            }
-            else
-            {
-                _wasPlayingOnFocusLost = false;
-            }
-        }
-        else
-        {
-            // Regained focus — resume only if we were playing before
-            if (_wasPlayingOnFocusLost)
-            {
-                _wasPlayingOnFocusLost = false;
-                ResumeAnimation();
-            }
-        }
-    }
-
-    // OnApplicationPause covers mobile home-button presses etc.
-    private void OnApplicationPause(bool isPaused)
-    {
-        OnApplicationFocus(!isPaused);
-    }
-
-    // ── Internal pause that doesn't reset _wasPlayingOnFocusLost ────────────
-    private void PauseAnimationInternal()
-    {
-        if (currentAnimationState == ImageState.PLAYING)
-        {
-            if (_animCoroutine != null)
-            {
-                StopCoroutine(_animCoroutine);
-                _animCoroutine = null;
-            }
-            currentAnimationState = ImageState.PAUSED;
-        }
-    }
-
-    // ── Core animation coroutine (replaces Invoke chain) ────────────────────
+    // ── Core animation coroutine ─────────────────────────────────────────────
+    // Uses WaitForSeconds (scaled time) instead of WaitForSecondsRealtime.
+    // WaitForSecondsRealtime accumulates real-world debt while the browser
+    // throttles the tab, so when you return it fires in a rapid burst to
+    // "catch up". WaitForSeconds is driven by Unity's Time.deltaTime which
+    // does NOT accumulate during throttled frames, so playback resumes at
+    // the normal rate with no burst.
     private IEnumerator AnimationCoroutine()
     {
         while (true)
         {
-            yield return new WaitForSecondsRealtime(delayBetweenAnimation);
+            yield return new WaitForSeconds(delayBetweenAnimation);
 
             SetTextureOfIndex();
             indexOfTexture++;
@@ -128,7 +91,7 @@ public class ImageAnimation : MonoBehaviour
                 if (doLoopAnimation)
                 {
                     if (delayBetweenLoop > 0f)
-                        yield return new WaitForSecondsRealtime(delayBetweenLoop);
+                        yield return new WaitForSeconds(delayBetweenLoop);
                     // continue looping
                 }
                 else
@@ -161,7 +124,15 @@ public class ImageAnimation : MonoBehaviour
 
     public void PauseAnimation()
     {
-        PauseAnimationInternal();
+        if (currentAnimationState == ImageState.PLAYING)
+        {
+            if (_animCoroutine != null)
+            {
+                StopCoroutine(_animCoroutine);
+                _animCoroutine = null;
+            }
+            currentAnimationState = ImageState.PAUSED;
+        }
     }
 
     public void ResumeAnimation()

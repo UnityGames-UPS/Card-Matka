@@ -297,6 +297,8 @@ public class SocketIOManager : MonoBehaviour
     {
         CashoutTime = JsonConvert.DeserializeObject<Root>(data);
         Debug.Log(data);
+        gameManager.SetPhase(GameManager.GamePhase.Waiting);
+        uiManager.SetPhase();
         gameManager.OnTimerTick(CashoutTime.timeRemaining);
     }
     private void OnListenCard(string data)
@@ -869,6 +871,7 @@ public class SocketIOManager : MonoBehaviour
         }
         gameManager.OnRoomEnter(roomData.Payload.stats, roomData.Payload.leaderboards);
         gameManager.OnLobbyCount(roomData.Payload.playerCount);
+        gameManager.ToggleCardBlackBg(true);
         //if (roomData.success == false)
         //{
         //StartCoroutine(gameManager.ShowLoadingPage("Loading...."));

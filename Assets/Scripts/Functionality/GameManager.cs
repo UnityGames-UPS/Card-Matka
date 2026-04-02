@@ -116,7 +116,6 @@ public class GameManager : MonoBehaviour
         SetPhase(GamePhase.Betting);
         audioManager.PlayPlaceBetNow();
         uiManager.SetPhase();
-        animationManager.ResetAnimations();
         ToggleCardBlackBg(false);
     }
 
@@ -211,6 +210,7 @@ public class GameManager : MonoBehaviour
     {
         Debug.Log($"GameManager: Round ended → {roundId}");
 
+        animationManager.ResetAnimations();
         betManager.OnRoundEnd();
         SetPhase(GamePhase.Waiting);
         uiManager.SetPhase();
@@ -250,7 +250,7 @@ public class GameManager : MonoBehaviour
     }
 
 
-    private void SetPhase(GamePhase phase)
+    internal void SetPhase(GamePhase phase)
     {
         currentPhase = phase;
         Debug.Log($"GameManager: Phase → {phase}");
@@ -280,7 +280,7 @@ public class GameManager : MonoBehaviour
     internal void OnDoubleButton() => betManager.SendDouble();
     internal void OnRepeatButton() => betManager.SendRepeat();
 
-    private void ToggleCardBlackBg(bool show)
+    internal void ToggleCardBlackBg(bool show)
     {
         foreach (var bg in CardBlackBg)
         {
