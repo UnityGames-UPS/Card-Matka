@@ -13,6 +13,7 @@ using Best.SocketIO.Events;
 using System.Runtime.Serialization;
 using Best.HTTP.Shared;
 using NUnit.Framework.Interfaces;
+using DG.Tweening;
 
 public class SocketIOManager : MonoBehaviour
 {
@@ -89,11 +90,22 @@ public class SocketIOManager : MonoBehaviour
 
     private void Awake()
     {
+        // Keep Unity's game loop running even when the browser tab is hidden.
+        // This was already here — keeping it.
         Application.runInBackground = true;
-        //Debug.unityLogger.logEnabled = false;
+
+        // Switch ALL DOTween animations project-wide to use unscaledDeltaTime.
+        // This is the core fix: tweens now advance on real wall-clock time and
+        // are completely immune to whatever the browser does to Time.timeScale
+        // when a tab loses focus. Without this, tweens freeze when hidden and
+        // then fire all at once when you return to the tab.
+        DOTween.defaultTimeScaleIndependent = true;
+
+        // Safety: ensure timeScale starts at 1.
+        Time.timeScale = 1f;
+
         isLoaded = false;
         SetInit = false;
-
     }
 
     private void Start()
@@ -265,6 +277,7 @@ public class SocketIOManager : MonoBehaviour
         {
             uiManager.DisconnectionPopup();
         }
+        //RaycastBlocker.SetActive(true);
         ResetPingRoutine();
     } //Back2 end
     private void OnError(Error err)
@@ -321,18 +334,21 @@ public class SocketIOManager : MonoBehaviour
         Debug.Log("Focus: " + focus);
         isFocused = focus;
 
+        // Prevent browser from freezing the game loop via timeScale
+        Time.timeScale = 1f;
+
+        // Mute audio when hidden, restore when visible
+        uiManager?.OnAppFocusChanged(focus);
+
         if (!focus)
         {
-            // Start checking after losing focus
             if (focusCheckCoroutine == null && !disconnectionShown)
                 focusCheckCoroutine = StartCoroutine(IsNotInFocus());
         }
         else
         {
-            // If popup already shown, do NOT cancel anything
             if (disconnectionShown) return;
 
-            // Otherwise cancel coroutine when focus returns
             if (focusCheckCoroutine != null)
             {
                 StopCoroutine(focusCheckCoroutine);
@@ -849,9 +865,10 @@ public class SocketIOManager : MonoBehaviour
         if (isFirstRoom)
         {
             isFirstRoom = false;
-            uiManager.OpenPopup(uiManager.StartupPanel);
+            //uiManager.OpenPopup(uiManager.StartupPanel);
         }
         gameManager.OnRoomEnter(roomData.Payload.stats, roomData.Payload.leaderboards);
+        gameManager.OnLobbyCount(roomData.Payload.playerCount);
         //if (roomData.success == false)
         //{
         //StartCoroutine(gameManager.ShowLoadingPage("Loading...."));
@@ -890,6 +907,7 @@ public class SocketIOManager : MonoBehaviour
     {
         Debug.Log("Bonus\n" + data);
         BonusData = JsonConvert.DeserializeObject<Bonus>(data);
+        betManager.OnBettingClose();
         gameManager.OnBonus(BonusData);
     }
 
@@ -1302,7 +1320,8 @@ public class Payload
     //public string level { get; set; }
     public List<string> stats { get; set; }
     public Leaderboards leaderboards { get; set; }
-    public object roundState { get; set; }
+
+    public RoundState roundState { get; set; }
 
     public List<Bet> bets { get; set; }
     public double totalDelta { get; set; }
@@ -1316,6 +1335,17 @@ public class Payload
     //Lobby Count
     public int count { get; set; }
 
+}
+
+[Serializable]
+public class RoundState
+{
+    public string roundId { get; set; }
+    public long startedAt { get; set; }
+    public long bettingEndTime { get; set; }
+    public long serverTime { get; set; }
+    public int timeRemaining { get; set; }
+    public string phase { get; set; }
 }
 
 [Serializable]

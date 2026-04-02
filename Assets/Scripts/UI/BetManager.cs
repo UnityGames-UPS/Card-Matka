@@ -12,6 +12,7 @@ public class BetManager : MonoBehaviour
     [SerializeField] private UiManager uiManager;
     [SerializeField] private GameManager gameManager;
     [SerializeField] private AudioManager audioManager;
+    [SerializeField] private LeaderBoardController leaderBoardController;
     [SerializeField] private RectTransform profileIcon;
     [SerializeField] private TMP_Text balanceLabel;
     [SerializeField] private TMP_Text totalBetLabel;
@@ -42,9 +43,11 @@ public class BetManager : MonoBehaviour
     [Header("Other Player Icons")]
     [Tooltip("Fallback icon used when the betting player is not found in the leaderboard")]
     [SerializeField] internal RectTransform defaultOtherPlayerIcon;
+    [Tooltip("Position from which winning chips fly TO the bet button on other-player win")]
+    [SerializeField] private RectTransform winChipSpawnOrigin;
 
     [Header("Bet Buttons")]
-    [SerializeField] private GameObject RepeatBetPanel;
+    [SerializeField] internal GameObject RepeatBetPanel;
     [SerializeField] private Button RepeatBetButton;
     [SerializeField] internal GameObject BetButtonPanel;
     [SerializeField] private Button UndoButton;
@@ -54,6 +57,11 @@ public class BetManager : MonoBehaviour
     [Header("Game State")]
     [SerializeField] internal string currentLevel = "casual";
     [SerializeField] internal int selectedChipIndex = 0; // set by your coin-selector UI
+
+    // Add these fields to store the "resting" anchoredPosition.x for each panel
+    private float repeatBetPanelHomeX;
+    private float betButtonPanelHomeX;
+    private bool homesRecorded = false;
 
     internal bool isBettingOpen = false;
     internal double currentBalance = 0;
@@ -79,6 +87,8 @@ public class BetManager : MonoBehaviour
         UndoButton.onClick.AddListener(SendUndo);
         CancelButton.onClick.AddListener(SendCancel);
         DoubleButton.onClick.AddListener(SendDouble);
+
+        RecordPanelHomes();
     }
 
     internal void OnRoundStart()
@@ -105,6 +115,14 @@ public class BetManager : MonoBehaviour
         ClearAllChips();
         currentTotalBet = 0;
         RefreshTotalLabel();
+    }
+
+    internal void OnBettingClose()
+    {
+        if (currentTotalBet > 0)
+        {
+            hasPlacedBet = true;
+        }
     }
 
     internal void OnHome()
@@ -139,6 +157,11 @@ public class BetManager : MonoBehaviour
         if (buttonMap.TryGetValue(betOption, out BetButton bb))
             SpawnChipsForAmount(bb, amount);
 
+        if (RepeatBetPanel.activeSelf == true)
+        {
+            //SlideOutToLeft(RepeatBetPanel);
+        }
+
         if (BetButtonPanel.activeSelf == false)
             SlideInFromLeft(BetButtonPanel);
     }
@@ -166,9 +189,9 @@ public class BetManager : MonoBehaviour
         SetBalance(balance);
         RefreshTotalLabel();
         StartCoroutine(CancelFlyOutAnimation());
-        SlideOutToLeft(BetButtonPanel);
         if (hasPlacedBet)
             SlideInFromLeft(RepeatBetPanel);
+        SlideOutToLeft(BetButtonPanel);
     }
 
     /// <summary>
@@ -199,7 +222,7 @@ public class BetManager : MonoBehaviour
 
             captured.transform.DOKill();
 
-            Vector3 risePos = captured.transform.position + new Vector3(0f, spawnYOffset * 1.5f, 0f);
+            Vector3 risePos = captured.transform.position + new Vector3(0f, 10f, 0f);
 
             Sequence seq = DOTween.Sequence();
             seq.SetDelay(capturedStagger);
@@ -246,6 +269,10 @@ public class BetManager : MonoBehaviour
         SetBalance(balance);
         RefreshTotalLabel();
 
+        //SlideOutToLeft(RepeatBetPanel);
+
+        SlideInFromLeft(BetButtonPanel);
+
         foreach (var entry in bets)
             if (buttonMap.TryGetValue(entry.betOption, out BetButton bb))
                 SpawnChipsForAmount(bb, entry.amount);
@@ -262,16 +289,22 @@ public class BetManager : MonoBehaviour
         isBettingOpen = false;
         SetBalance(balance);
 
+        // Net = what the player receives back minus what they staked this round.
+        // Positive  → profit   e.g. staked 100, won 250  → net = +150
+        // Zero      → push     e.g. staked 100, won 100  → net =   0
+        // Negative  → loss     e.g. staked 100, won 0    → net = -100
+        double netAmount = winAmount - currentTotalBet;
+
         if (winAmount > 0)
-            StartCoroutine(CashoutWinAnimation(winAmount));
+            StartCoroutine(CashoutWinAnimation(winAmount, netAmount));
         else
-            StartCoroutine(PopOutChips());
+            StartCoroutine(PopOutChips(netAmount));
     }
 
 
-    private IEnumerator CashoutWinAnimation(double winAmount)
+    private IEnumerator CashoutWinAnimation(double winAmount, double netAmount)
     {
-        yield return new WaitForSeconds(1.1f);
+        yield return new WaitForSeconds(0.1f);
         audioManager.PlayChips();
 
         string resultCard = gameManager.lastResultCard;
@@ -280,10 +313,10 @@ public class BetManager : MonoBehaviour
         var winningOptions = new HashSet<string>();
         if (!string.IsNullOrEmpty(resultCard) && !string.IsNullOrEmpty(resultSuit))
         {
-            winningOptions.Add($"{resultCard}_{resultSuit}");                                      // op_bet
-            winningOptions.Add(resultCard);                                                         // main_bet
+            winningOptions.Add($"{resultCard}_{resultSuit}");
+            winningOptions.Add(resultCard);
             string suitCap = char.ToUpper(resultSuit[0]) + resultSuit.Substring(1);
-            winningOptions.Add($"specific_{suitCap}");                                             // side_bet
+            winningOptions.Add($"specific_{suitCap}");
         }
 
         var winningSlots = new List<string>();
@@ -291,22 +324,33 @@ public class BetManager : MonoBehaviour
 
         foreach (var key in slotChips.Keys)
         {
-            if (winningOptions.Contains(key))
-                winningSlots.Add(key);
-            else
-                losingSlots.Add(key);
+            if (winningOptions.Contains(key)) winningSlots.Add(key);
+            else losingSlots.Add(key);
         }
 
+        // ── Losing chips: pop out ─────────────────────────────────────────────
         foreach (var key in losingSlots)
-        {
             foreach (var chip in slotChips[key])
                 if (chip != null)
                     chip.transform.DOScale(Vector3.zero, 0.25f)
                         .SetEase(Ease.InBack)
                         .OnComplete(() => Destroy(chip));
+
+        foreach (var chips in winningSlots)
+        {
+            if (slotChips.ContainsKey(chips))
+            {
+                foreach (var chip in slotChips[chips])
+                {
+                    buttonMap.TryGetValue(chips, out BetButton bb);
+                    chip.transform.SetParent(bb.WinAnimationObject.transform.GetComponentInParent<RectTransform>(), false);
+                }
+            }
         }
 
+        yield return new WaitForSeconds(0.9f);
 
+        // ── Phase 1: spawn profit chips from winChipSpawnOrigin → bet button ─
         double totalBetOnWinners = 0;
         foreach (var key in winningSlots)
             if (slotTotals.ContainsKey(key))
@@ -314,8 +358,11 @@ public class BetManager : MonoBehaviour
 
         double profit = winAmount - totalBetOnWinners;
 
-        if (profit > 0 && chipPrefab != null)
+        float longestIncoming = 0f;
+
+        if (profit > 0 && chipPrefab != null && winChipSpawnOrigin != null)
         {
+            Vector3 spawnPos = winChipSpawnOrigin.position;
             float winChipStagger = 0f;
             const float winChipStaggerStep = 0.08f;
 
@@ -328,47 +375,69 @@ public class BetManager : MonoBehaviour
                     ? profit * (slotTotals[key] / totalBetOnWinners)
                     : profit / winningSlots.Count;
 
-                // Break the profit share into denominated chip values (same greedy logic as betting)
                 List<double> chipValues = DecomposeIntoChipValues(share);
-
-                RectTransform parent = bb.WinAnimationObject.GetComponentInParent<RectTransform>();
 
                 foreach (double chipValue in chipValues)
                 {
+                    double capturedValue = chipValue;
                     float capturedStagger = winChipStagger;
 
-                    GameObject profitChip = Instantiate(chipPrefab, parent);
+                    // Give every profit chip its own scatter offset so multiple chips
+                    // don't land exactly on top of each other and appear as one chip.
+                    Vector3 capturedScatter = new Vector3(
+                        Random.Range(-landingScatterRadius, landingScatterRadius),
+                        Random.Range(-landingScatterRadius * 0.5f, landingScatterRadius * 0.5f),
+                        0f);
+
+                    GameObject profitChip = Instantiate(chipPrefab, bb.WinAnimationObject.transform.GetComponentInParent<RectTransform>());
+
+                    // FIX: Our player's profit chips always on top
+                    profitChip.transform.SetAsLastSibling();
+
+                    profitChip.transform.position = spawnPos;
                     profitChip.transform.localScale = Vector3.zero;
 
-                    // Apply correct denomination sprite
+                    // Sprite
                     Image chipImage = profitChip.GetComponent<Image>();
                     if (chipImage == null) chipImage = profitChip.GetComponentInChildren<Image>();
                     if (chipImage != null)
                     {
-                        Sprite best = GetChipSpriteForAmount(chipValue);
+                        Sprite best = GetChipSpriteForAmount(capturedValue);
                         if (best != null) chipImage.sprite = best;
                     }
 
+                    // Label
                     TMP_Text lbl = profitChip.GetComponentInChildren<TMP_Text>();
-                    if (lbl != null) lbl.text = FormatAmount(chipValue);
+                    if (lbl != null) lbl.text = FormatAmount(capturedValue);
 
-                    // Staggered pop-in so chips appear one after another
-                    profitChip.transform.DOScale(Vector3.one, 0.2f)
-                        .SetDelay(capturedStagger)
-                        .SetEase(Ease.OutBack);
+                    // Pop in + fly to bet button (with per-chip scatter), staggered
+                    profitChip.transform.DOScale(Vector3.one, 0.15f)
+                        .SetDelay(capturedStagger).SetEase(Ease.OutBack);
+                    profitChip.transform.DOMove(bb.chipParent.position + capturedScatter, 0.45f)
+                        .SetDelay(capturedStagger).SetEase(Ease.InOutQuad)
+                        .OnComplete(() =>
+                        {
+                            profitChip.transform.DOScale(Vector3.one * 0.85f, 0.12f).SetEase(Ease.OutSine)
+                                .OnComplete(() =>
+                                    profitChip.transform.DOPunchScale(new Vector3(0.12f, -0.12f, 0f), 0.15f, 4, 0.4f));
+                        });
 
+                    // Track so Phase 2 can pick it up
                     if (!slotChips.ContainsKey(key)) slotChips[key] = new List<GameObject>();
                     slotChips[key].Add(profitChip);
+
+                    float thisEnd = capturedStagger + 0.45f + 0.27f;
+                    if (thisEnd > longestIncoming) longestIncoming = thisEnd;
 
                     winChipStagger += winChipStaggerStep;
                 }
             }
         }
 
-        // Wait for all win chips to finish popping in before flying them off
-        yield return new WaitForSeconds(0.3f);
+        // Wait for all profit chips to land + settle buffer
+        yield return new WaitForSeconds(longestIncoming + 1f);
 
-        // ── Winning chips: fly to profileIcon ───────────────────────────────
+        // ── Phase 2: ALL chips on winning buttons rise + fly to profileIcon ───
         Vector3 iconPos = profileIcon.position;
         float delay = 0f;
         bool pulseScheduled = false;
@@ -386,22 +455,22 @@ public class BetManager : MonoBehaviour
 
                 captured.transform.DOKill();
 
-                Vector3 risePos = captured.transform.position + new Vector3(0f, spawnYOffset * 1.5f, 0f);
+                Vector3 risePos = captured.transform.position + new Vector3(0f, 10f, 0f);
 
                 Sequence seq = DOTween.Sequence();
                 seq.SetDelay(capturedDelay);
-                // Phase 1: rise straight up
                 seq.Append(captured.transform.DOMove(risePos, 0.25f).SetEase(Ease.OutQuad));
-                // Phase 2: move to profile icon while scaling down
                 seq.AppendCallback(() =>
                 {
                     captured.transform.DOMove(iconPos, 0.8f).SetEase(Ease.InOutQuad)
                         .OnComplete(() =>
                         {
                             if (isFirst)
-                                profileIcon.DOPunchScale(Vector3.one * 0.25f, 0.3f, 5, 0.5f);
+                            {
+                                //profileIcon.DOPunchScale(Vector3.one * 0.25f, 0.3f, 5, 0.5f);
+                                uiManager.ShowCashoutUI(netAmount);
+                            }
                             Destroy(captured);
-                            uiManager.ShowCashoutUI(winAmount);
                         });
                     captured.transform.DOScale(Vector3.zero, 0.8f).SetEase(Ease.InQuad);
                 });
@@ -417,7 +486,7 @@ public class BetManager : MonoBehaviour
         RefreshAllSlotLabels();
     }
 
-    private IEnumerator PopOutChips()
+    private IEnumerator PopOutChips(double netAmount)
     {
         foreach (var list in slotChips.Values)
             foreach (var chip in list)
@@ -430,6 +499,9 @@ public class BetManager : MonoBehaviour
         slotChips.Clear();
         slotTotals.Clear();
         RefreshAllSlotLabels();
+
+        // Show net loss amount (netAmount will be negative here)
+        //uiManager.ShowCashoutUI(netAmount);
     }
 
 
@@ -450,24 +522,56 @@ public class BetManager : MonoBehaviour
         // Spawn chip at the leaderboard row / default icon position, parented to the bet button
         // so it stays in place after landing (no canvas reparent needed)
         GameObject chip = Instantiate(otherPlayerChipPrefab, targetButton.chipParent);
+
+        // FIX: Push other-player chips behind our own chips.
+        // In Unity UI, sibling index 0 renders behind all higher-index siblings.
+        // Our chips call SetAsLastSibling() so they always sit above these.
+        chip.transform.SetAsFirstSibling();
+
+        //foreach (var biggest in leaderBoardController.BiggestRows)
+        {
+            if (leaderBoardController.MaskUsername(username) == leaderBoardController.BiggestRows[0].playerNameText.text)
+            {
+                ImageAnimation chan = chip.transform.GetChild(0).GetComponent<ImageAnimation>();
+                chan.gameObject.SetActive(true);
+                chan.StartAnimation();
+                chan.doLoopAnimation = true;
+            }
+        }
+        //foreach (var richest in leaderBoardController.RichestRows)
+        {
+            if (leaderBoardController.MaskUsername(username) == leaderBoardController.RichestRows[0].playerNameText.text)
+            {
+                GameObject big = chip.transform.GetChild(0).gameObject;
+                big.SetActive(false);
+                ImageAnimation chan = chip.transform.GetChild(1).GetComponent<ImageAnimation>();
+                chan.gameObject.SetActive(true);
+                chan.StartAnimation();
+                chan.doLoopAnimation = true;
+            }
+        }
         chip.transform.GetComponentInChildren<TMP_Text>().text = amount.ToString();
 
         // Start at the origin's world position
         chip.transform.position = spawnOrigin.position;
         chip.transform.localScale = Vector3.zero;
 
+        Vector3 randomPosi = new Vector3(Random.Range(-landingScatterRadius, landingScatterRadius), Random.Range(-5f, 5f));
+
         // Pop in scale
         chip.transform.DOScale(Vector3.one, 0.15f).SetEase(Ease.OutBack);
 
         // Fly straight to the bet button parent position, then squish on landing
-        chip.transform.DOMove(targetButton.chipParent.position, 0.5f)
+        chip.transform.DOMove(targetButton.chipParent.position + randomPosi, 0.5f)
             .SetDelay(0.1f)
             .SetEase(Ease.InOutQuad)
             .OnComplete(() =>
             {
                 chip.transform.DOScale(Vector3.one * 0.85f, 0.12f).SetEase(Ease.OutSine)
                     .OnComplete(() =>
-                        chip.transform.DOPunchScale(new Vector3(0.12f, -0.12f, 0f), 0.15f, 4, 0.4f));
+                        chip.transform.DOPunchScale(new Vector3(0.12f, -0.12f, 0f), 0.15f, 4, 0.4f))
+                        .OnComplete(() =>
+                            chip.transform.DOScale(Vector3.one, 0.2f));
             });
 
         // Track this chip under username → betOption
@@ -498,7 +602,7 @@ public class BetManager : MonoBehaviour
 
         if (win > 0)
         {
-            // Build the same winning-options set used for the current player
+            // ── Build winning-options set ─────────────────────────────────────────
             string resultCard = gameManager.lastResultCard;
             string resultSuit = gameManager.lastResultSuit;
             var winningOptions = new HashSet<string>();
@@ -512,55 +616,178 @@ public class BetManager : MonoBehaviour
 
             RectTransform target = (destination != null) ? destination : defaultOtherPlayerIcon;
             Vector3 targetPos = target != null ? target.position : Vector3.zero;
+            Vector3 spawnPos = winChipSpawnOrigin != null ? winChipSpawnOrigin.position : targetPos;
 
-            float delay = 0f;
-            bool pulseScheduled = false;
+            // ── Compute total weight for proportional win distribution ────────────
+            double totalWeight = 0;
+            var winningSlotsInDict = new List<string>();
+            foreach (var kvp in slotDict)
+            {
+                if (!winningOptions.Contains(kvp.Key)) continue;
+                winningSlotsInDict.Add(kvp.Key);
+                totalWeight += kvp.Value.Count;
+            }
+
+            // ── Phase 1 ───────────────────────────────────────────────────────────
+            // Losing chips   → pop immediately
+            // Winning chips  → keep sitting; spawn denomination-split win chips
+            //                  flying from winChipSpawnOrigin to each bet button
+
+            var phase2Chips = new Dictionary<string, List<GameObject>>();
+            float longestIncoming = 0f;
 
             foreach (var kvp in slotDict)
             {
                 string betOption = kvp.Key;
-                List<GameObject> chips = kvp.Value;
+                List<GameObject> existingChips = kvp.Value;
                 bool isWinningSlot = winningOptions.Contains(betOption);
 
-                foreach (var chip in chips)
+                if (!isWinningSlot)
                 {
-                    if (chip == null) continue;
-                    chip.transform.DOKill();
-
-                    if (isWinningSlot)
+                    // Pop losing chips
+                    foreach (var chip in existingChips)
                     {
-                        // Rise-then-fly to leaderboard row
-                        GameObject captured = chip;
-                        float capturedDelay = delay;
-                        bool isFirst = !pulseScheduled;
-                        if (isFirst) pulseScheduled = true;
-
-                        Vector3 risePos = captured.transform.position + new Vector3(0f, spawnYOffset, 0f);
-
-                        Sequence seq = DOTween.Sequence();
-                        seq.SetDelay(capturedDelay);
-                        seq.Append(captured.transform.DOMove(risePos, 0.25f).SetEase(Ease.OutQuad));
-                        seq.AppendCallback(() =>
-                        {
-                            captured.transform.DOMove(targetPos, 0.8f).SetEase(Ease.InOutQuad)
-                                .OnComplete(() =>
-                                {
-                                    if (isFirst && target != null)
-                                        target.DOPunchScale(Vector3.one * 0.25f, 0.3f, 5, 0.5f);
-                                    Destroy(captured);
-                                });
-                            captured.transform.DOScale(Vector3.zero, 0.8f).SetEase(Ease.InQuad);
-                        });
-
-                        delay += 0.05f;
-                    }
-                    else
-                    {
-                        // Losing slot — pop and destroy
+                        if (chip == null) continue;
+                        chip.transform.DOKill();
                         chip.transform.DOScale(Vector3.zero, 0.25f)
                             .SetEase(Ease.InBack)
                             .OnComplete(() => Destroy(chip));
                     }
+                    continue;
+                }
+
+                if (!buttonMap.TryGetValue(betOption, out BetButton bb)) continue;
+
+                // Seed Phase 2 with the existing sitting bet chips
+                phase2Chips[betOption] = new List<GameObject>(existingChips);
+
+                // Proportional win share for this slot
+                double slotWeight = totalWeight > 0
+                    ? existingChips.Count / totalWeight
+                    : 1.0 / System.Math.Max(1, winningSlotsInDict.Count);
+                double slotWinAmount = win * slotWeight;
+
+                // Break win amount into denominations — same greedy logic as SpawnChipsForAmount
+                var denominations = new List<double>();
+                if (chipDenominations != null && chipDenominations.Length > 0)
+                {
+                    double[] sorted = (double[])chipDenominations.Clone();
+                    System.Array.Sort(sorted);
+                    System.Array.Reverse(sorted);
+
+                    double remaining = slotWinAmount;
+                    while (remaining > 0.001)
+                    {
+                        double chosen = -1;
+                        foreach (double d in sorted)
+                            if (d <= remaining + 0.001) { chosen = d; break; }
+
+                        if (chosen < 0)
+                        {
+                            if (denominations.Count > 0)
+                                denominations[denominations.Count - 1] += remaining;
+                            else
+                                denominations.Add(remaining);
+                            break;
+                        }
+
+                        if (remaining - chosen < 0.001)
+                        {
+                            denominations.Add(remaining);
+                            remaining = 0;
+                        }
+                        else
+                        {
+                            denominations.Add(chosen);
+                            remaining -= chosen;
+                        }
+                    }
+                }
+                else
+                {
+                    denominations.Add(slotWinAmount);
+                }
+
+                // Spawn one chip per denomination, staggered, flying to the bet button
+                float incomingDelay = 0f;
+                const float incomingStagger = 0.08f;
+
+                foreach (double denomValue in denominations)
+                {
+                    double capturedDenom = denomValue;
+                    float capturedIncomingDelay = incomingDelay;
+
+                    GameObject winChip = Instantiate(otherPlayerChipPrefab, bb.chipParent);
+
+                    // FIX: Other-player win chips also go behind our chips
+                    winChip.transform.SetSiblingIndex(1);
+
+                    TMP_Text lbl = winChip.GetComponentInChildren<TMP_Text>();
+                    if (lbl != null) lbl.text = FormatAmount(capturedDenom);
+
+                    winChip.transform.position = spawnPos;
+                    winChip.transform.localScale = Vector3.zero;
+
+                    winChip.transform.DOScale(Vector3.one, 0.15f)
+                        .SetDelay(capturedIncomingDelay).SetEase(Ease.OutBack);
+                    winChip.transform.DOMove(bb.chipParent.position, 0.45f)
+                        .SetDelay(capturedIncomingDelay).SetEase(Ease.InOutQuad)
+                        .OnComplete(() =>
+                        {
+                            winChip.transform.DOScale(Vector3.one * 0.85f, 0.12f).SetEase(Ease.OutSine)
+                                .OnComplete(() =>
+                                    winChip.transform.DOPunchScale(new Vector3(0.12f, -0.12f, 0f), 0.15f, 4, 0.4f));
+                        });
+
+                    phase2Chips[betOption].Add(winChip);
+
+                    float thisChipEnd = capturedIncomingDelay + 0.45f + 0.27f;
+                    if (thisChipEnd > longestIncoming) longestIncoming = thisChipEnd;
+
+                    incomingDelay += incomingStagger;
+                }
+            }
+
+            // Wait for all win chips to land and settle
+            yield return new WaitForSeconds(longestIncoming + 1f);
+
+            // ── Phase 2 ───────────────────────────────────────────────────────────
+            // ALL chips (original bets + win chips) on every winning button
+            // rise up then fly together to the destination
+
+            float delay = 0f;
+            bool pulseScheduled = false;
+
+            foreach (var kvp in phase2Chips)
+            {
+                foreach (var chip in kvp.Value)
+                {
+                    if (chip == null) continue;
+                    GameObject captured = chip;
+                    float capturedDelay = delay;
+                    bool isFirst = !pulseScheduled;
+                    if (isFirst) pulseScheduled = true;
+
+                    captured.transform.DOKill();
+
+                    Vector3 risePos = captured.transform.position + new Vector3(0f, 10f, 0f);
+
+                    Sequence seq = DOTween.Sequence();
+                    seq.SetDelay(capturedDelay);
+                    seq.Append(captured.transform.DOMove(risePos, 0.25f).SetEase(Ease.OutQuad));
+                    seq.AppendCallback(() =>
+                    {
+                        captured.transform.DOMove(targetPos, 0.8f).SetEase(Ease.InOutQuad)
+                            .OnComplete(() =>
+                            {
+                                if (isFirst && target != null)
+                                    target.DOPunchScale(Vector3.one * 0.25f, 0.3f, 5, 0.5f);
+                                Destroy(captured);
+                            });
+                        captured.transform.DOScale(Vector3.zero, 0.8f).SetEase(Ease.InQuad);
+                    });
+
+                    delay += 0.05f;
                 }
             }
         }
@@ -615,15 +842,6 @@ public class BetManager : MonoBehaviour
     }
 
 
-    /// <summary>
-    /// Decomposes <paramref name="amount"/> into chips using a greedy largest-denomination-first
-    /// algorithm, then spawns each chip with a small stagger delay.
-    ///
-    /// Example: amount=253, denominations=[50,100,200,300,400,500]
-    ///   → 200 chip (label "200"), then 53 chip (label "53", sprite for 50).
-    /// The final remainder chip uses the largest denomination sprite that fits it,
-    /// but shows the true leftover value as its label.
-    /// </summary>
     /// <summary>
     /// Decomposes <paramref name="amount"/> into a list of chip face-values using the same
     /// greedy largest-denomination-first algorithm as <see cref="SpawnChipsForAmount"/>.
@@ -750,6 +968,11 @@ public class BetManager : MonoBehaviour
         // ── Instantiate ──────────────────────────────────────────────────────────
         GameObject chip = Instantiate(chipPrefab, bb.chipParent);
 
+        // FIX: Always keep our player's chips rendered on top of other-player chips.
+        // Unity UI renders higher sibling index on top; SetAsLastSibling ensures
+        // our chip is always above any other-player chip already in the parent.
+        chip.transform.SetAsLastSibling();
+
         // ── Pick correct sprite ──────────────────────────────────────────────────
         Image chipImage = chip.GetComponent<Image>();
         if (chipImage == null) chipImage = chip.GetComponentInChildren<Image>();
@@ -784,7 +1007,7 @@ public class BetManager : MonoBehaviour
                 chip.transform.DOPunchScale(new Vector3(0.15f, -0.15f, 0f), 0.18f, 4, 0.4f);
             });
 
-        // ── Book-keeping (unchanged) ─────────────────────────────────────────────
+        // ── Book-keeping ─────────────────────────────────────────────────────────
         string key = bb.betOption;
         if (!slotChips.ContainsKey(key)) slotChips[key] = new List<GameObject>();
         slotChips[key].Add(chip);
@@ -908,8 +1131,6 @@ public class BetManager : MonoBehaviour
         bool hasBet = amount > 0;
         bb.totalBetLabel.text = hasBet ? FormatAmount(amount) : "";
         bb.RedBg.SetActive(hasBet);
-        //if (hasBet)
-        //bb.RedBg.GetComponent<RectTransform>().DOPunchScale(Vector3.one * 0.12f, 0.25f, 5, 0.5f);
     }
 
     private void RefreshAllSlotLabels()
@@ -925,7 +1146,7 @@ public class BetManager : MonoBehaviour
 
     private string FormatAmount(double val)
     {
-        if (val >= 1000) return $"{val / 1000:0.#}K";
+        if (val >= 10000) return $"{val / 1000:0.##}K";
         return val.ToString("0.##");
     }
 
@@ -935,26 +1156,56 @@ public class BetManager : MonoBehaviour
     }
 
     // Repeatpanel and betbuttons panel slide in from the left coin image
+
+    // Call this once before any animation runs — add to Start() or OnRoundStart()
+    private void RecordPanelHomes()
+    {
+        if (homesRecorded) return;
+        homesRecorded = true;
+        repeatBetPanelHomeX = RepeatBetPanel.GetComponent<RectTransform>().anchoredPosition.x;
+        betButtonPanelHomeX = BetButtonPanel.GetComponent<RectTransform>().anchoredPosition.x;
+    }
+
     private void SlideInFromLeft(GameObject panel)
     {
         if (panel == null) return;
-        panel.SetActive(true);
+        if (panel == BetButtonPanel)
+        {
+            RepeatBetPanel.SetActive(false);
+        }
+        if (panel == RepeatBetPanel)
+        {
+            BetButtonPanel.SetActive(false);
+        }
+        RecordPanelHomes();
+
         RectTransform rect = panel.GetComponent<RectTransform>();
-        float endX = rect.anchoredPosition.x;
-        rect.anchoredPosition = new Vector2(rect.anchoredPosition.x - 200, rect.anchoredPosition.y);
-        rect.DOAnchorPosX(endX, 0.7f).SetEase(Ease.OutCubic);
+        rect.DOKill(true); // ← kill any in-progress tween, snap to its current target
+
+        // Determine the correct home X for this panel
+        float homeX = (panel == RepeatBetPanel) ? repeatBetPanelHomeX : betButtonPanelHomeX;
+
+        panel.SetActive(true);
+        rect.anchoredPosition = new Vector2(homeX - 200f, rect.anchoredPosition.y); // start offscreen
+        rect.DOAnchorPosX(homeX, 0.7f).SetEase(Ease.OutCubic);
     }
 
     internal void SlideOutToLeft(GameObject panel)
     {
         if (panel == null) return;
+        RecordPanelHomes();
+
         RectTransform rect = panel.GetComponent<RectTransform>();
-        float startX = rect.anchoredPosition.x;
-        rect.DOAnchorPosX(startX - 200, 0.5f).SetEase(Ease.InCubic)
+        rect.DOKill(true); // ← kill any in-progress tween first
+
+        float homeX = (panel == RepeatBetPanel) ? repeatBetPanelHomeX : betButtonPanelHomeX;
+
+        rect.DOAnchorPosX(homeX - 200f, 0.5f).SetEase(Ease.InCubic)
             .OnComplete(() =>
             {
                 panel.SetActive(false);
-                rect.anchoredPosition = new Vector2(startX, rect.anchoredPosition.y);
+                // Reset to home so SlideIn always starts from a known position
+                rect.anchoredPosition = new Vector2(homeX, rect.anchoredPosition.y);
             });
     }
 }

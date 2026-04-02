@@ -1,147 +1,216 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class ImageAnimation : MonoBehaviour
 {
-	public enum ImageState
-	{
-		NONE,
-		PLAYING,
-		PAUSED
-	}
+    public enum ImageState
+    {
+        NONE,
+        PLAYING,
+        PAUSED
+    }
 
-	public static ImageAnimation Instance;
+    public static ImageAnimation Instance;
 
-	public List<Sprite> textureArray;
+    public List<Sprite> textureArray;
 
-	public Image rendererDelegate;
+    public Image rendererDelegate;
 
-	public bool useSharedMaterial = true;
+    public bool useSharedMaterial = true;
 
-	public bool doLoopAnimation = true;
-	[SerializeField] private bool StartOnAwake;
+    public bool doLoopAnimation = true;
+    [SerializeField] private bool StartOnAwake;
+    [SerializeField] private bool StartonEnable;
 
-	[SerializeField] private bool StartonEnable;
+    [HideInInspector]
+    public ImageState currentAnimationState;
 
-	[HideInInspector]
-	public ImageState currentAnimationState;
+    private int indexOfTexture;
 
-	private int indexOfTexture;
+    private float idealFrameRate = 0.0416666679f;
 
-	private float idealFrameRate = 0.0416666679f;
+    private float delayBetweenAnimation;
 
-	private float delayBetweenAnimation;
+    public float AnimationSpeed = 5f;
 
-	public float AnimationSpeed = 5f;
+    public float delayBetweenLoop;
+    internal bool isAnimationDone = false;
 
-	public float delayBetweenLoop;
+    // ── Coroutine handle so we can stop it cleanly ───────────────────────────
+    private Coroutine _animCoroutine;
 
-	private void Awake()
-	{
-		if (Instance == null)
-		{
-			Instance = this;
-		}
-		if(StartOnAwake){
-			StartAnimation();
-		}
-	}
+    // ── Tracks whether we were playing when focus was lost ───────────────────
+    private bool _wasPlayingOnFocusLost = false;
 
-void Start()
-{
-	//rendererDelegate= this.GetComponent<Image>();
-}
-	private void OnEnable()
-	{
-      if(StartonEnable) StartAnimation();
-	}
+    private void Awake()
+    {
+        if (Instance == null)
+            Instance = this;
 
-	private void OnDisable()
-	{
-		//rendererDelegate.sprite = textureArray[0];
-		StopAnimation();
-	}
+        if (StartOnAwake)
+            StartAnimation();
+    }
 
-	private void AnimationProcess()
-	{
-		SetTextureOfIndex();
-		indexOfTexture++;
-		if (indexOfTexture == textureArray.Count)
-		{
-			indexOfTexture = 0;
-			if (doLoopAnimation)
-			{
-				Invoke("AnimationProcess", delayBetweenAnimation + delayBetweenLoop);
-			}
-		}
-		else
-		{
-			Invoke("AnimationProcess", delayBetweenAnimation);
-		}
-	}
+    private void OnEnable()
+    {
+        if (StartonEnable)
+            StartAnimation();
+    }
 
-	public void StartAnimation()
-	{
-		indexOfTexture = 0;
-		if (currentAnimationState == ImageState.NONE)
-		{
-			RevertToInitialState();
-			delayBetweenAnimation = idealFrameRate * (float)textureArray.Count / AnimationSpeed;
-			currentAnimationState = ImageState.PLAYING;
-			Invoke("AnimationProcess", delayBetweenAnimation);
-		}
-	}
+    private void OnDisable()
+    {
+        StopAnimation();
+    }
 
-	public void PauseAnimation()
-	{
-		if (currentAnimationState == ImageState.PLAYING)
-		{
-			CancelInvoke("AnimationProcess");
-			currentAnimationState = ImageState.PAUSED;
-		}
-	}
+    // ── Tab-switch / app-pause handlers ─────────────────────────────────────
+    // OnApplicationFocus fires on both mobile and desktop browser tab switches.
+    private void OnApplicationFocus(bool hasFocus)
+    {
+        if (!hasFocus)
+        {
+            // Lost focus — pause if playing so frames don't queue up
+            if (currentAnimationState == ImageState.PLAYING)
+            {
+                _wasPlayingOnFocusLost = true;
+                PauseAnimationInternal();
+            }
+            else
+            {
+                _wasPlayingOnFocusLost = false;
+            }
+        }
+        else
+        {
+            // Regained focus — resume only if we were playing before
+            if (_wasPlayingOnFocusLost)
+            {
+                _wasPlayingOnFocusLost = false;
+                ResumeAnimation();
+            }
+        }
+    }
 
-	public void ResumeAnimation()
-	{
-		if (currentAnimationState == ImageState.PAUSED && !IsInvoking("AnimationProcess"))
-		{
-			Invoke("AnimationProcess", delayBetweenAnimation);
-			currentAnimationState = ImageState.PLAYING;
-		}
-	}
+    // OnApplicationPause covers mobile home-button presses etc.
+    private void OnApplicationPause(bool isPaused)
+    {
+        OnApplicationFocus(!isPaused);
+    }
 
-	public void StopAnimation()
-	{
-		if (currentAnimationState != 0)
-		{
-			rendererDelegate.sprite = textureArray[0];
-			CancelInvoke("AnimationProcess");
-			currentAnimationState = ImageState.NONE;
-		}
-	}
+    // ── Internal pause that doesn't reset _wasPlayingOnFocusLost ────────────
+    private void PauseAnimationInternal()
+    {
+        if (currentAnimationState == ImageState.PLAYING)
+        {
+            if (_animCoroutine != null)
+            {
+                StopCoroutine(_animCoroutine);
+                _animCoroutine = null;
+            }
+            currentAnimationState = ImageState.PAUSED;
+        }
+    }
 
-	public void RevertToInitialState()
-	{
-		indexOfTexture = 0;
-		SetTextureOfIndex();
-	}
+    // ── Core animation coroutine (replaces Invoke chain) ────────────────────
+    private IEnumerator AnimationCoroutine()
+    {
+        while (true)
+        {
+            yield return new WaitForSecondsRealtime(delayBetweenAnimation);
 
-	private void SetTextureOfIndex()
-	{
-		if (useSharedMaterial)
-		{
-			rendererDelegate.sprite = textureArray[indexOfTexture];
-		}
-		else
-		{
-			rendererDelegate.sprite = textureArray[indexOfTexture];
-		}
-	}
+            SetTextureOfIndex();
+            indexOfTexture++;
 
-	internal void ResetAnimationState()
-	{
-		RevertToInitialState();
-		currentAnimationState = ImageState.NONE;
-	}
+            if (indexOfTexture >= textureArray.Count)
+            {
+                indexOfTexture = 0;
+                if (doLoopAnimation)
+                {
+                    if (delayBetweenLoop > 0f)
+                        yield return new WaitForSecondsRealtime(delayBetweenLoop);
+                    // continue looping
+                }
+                else
+                {
+                    isAnimationDone = true;
+                    currentAnimationState = ImageState.NONE;
+                    _animCoroutine = null;
+                    yield break;
+                }
+            }
+        }
+    }
+
+    public void StartAnimation()
+    {
+        indexOfTexture = 0;
+        isAnimationDone = false;
+
+        if (currentAnimationState == ImageState.NONE)
+        {
+            RevertToInitialState();
+            delayBetweenAnimation = idealFrameRate * (float)textureArray.Count / AnimationSpeed;
+            currentAnimationState = ImageState.PLAYING;
+
+            if (_animCoroutine != null)
+                StopCoroutine(_animCoroutine);
+            _animCoroutine = StartCoroutine(AnimationCoroutine());
+        }
+    }
+
+    public void PauseAnimation()
+    {
+        PauseAnimationInternal();
+    }
+
+    public void ResumeAnimation()
+    {
+        if (currentAnimationState == ImageState.PAUSED)
+        {
+            currentAnimationState = ImageState.PLAYING;
+            if (_animCoroutine != null)
+                StopCoroutine(_animCoroutine);
+            _animCoroutine = StartCoroutine(AnimationCoroutine());
+        }
+    }
+
+    public void StopAnimation()
+    {
+        if (currentAnimationState != ImageState.NONE)
+        {
+            if (_animCoroutine != null)
+            {
+                StopCoroutine(_animCoroutine);
+                _animCoroutine = null;
+            }
+            if (textureArray != null && textureArray.Count > 0 && rendererDelegate != null)
+                rendererDelegate.sprite = textureArray[0];
+            currentAnimationState = ImageState.NONE;
+        }
+    }
+
+    public void RevertToInitialState()
+    {
+        indexOfTexture = 0;
+        SetTextureOfIndex();
+    }
+
+    private void SetTextureOfIndex()
+    {
+        if (rendererDelegate != null && textureArray != null && indexOfTexture < textureArray.Count)
+            rendererDelegate.sprite = textureArray[indexOfTexture];
+    }
+
+    internal void ResetAnimationState()
+    {
+        if (_animCoroutine != null)
+        {
+            StopCoroutine(_animCoroutine);
+            _animCoroutine = null;
+        }
+        RevertToInitialState();
+        currentAnimationState = ImageState.NONE;
+        isAnimationDone = false;
+    }
 }

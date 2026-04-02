@@ -32,10 +32,10 @@ public class HistoryRowView : MonoBehaviour
         // Date  e.g. "26 Feb, 09:59"
         if (DateText != null)
         {
-            if (DateTime.TryParse(round.created_at, out DateTime dt))
-                DateText.text = dt.ToString("dd MMM, HH:mm");
-            else
-                DateText.text = round.created_at ?? "";
+            // if (DateTime.TryParse(round.created_at, out DateTime dt))
+            //     DateText.text = dt.ToString("dd MMM, HH:mm");
+            // else
+                DateText.text = round.created_at;
         }
 
         // Amounts

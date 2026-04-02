@@ -13,6 +13,7 @@ public class InGamePopupManager : MonoBehaviour
     [SerializeField] private SocketIOManager socketIOManager;
     [SerializeField] private GameManager gameManager;
     [SerializeField] private UiManager uiManager;
+    [SerializeField] private AudioManager audioManager;
 
     [Header("Level Selection Popup")]
     [SerializeField] private Button LevelSelectionButton;
@@ -109,6 +110,7 @@ public class InGamePopupManager : MonoBehaviour
 
     private void LevelButtonClicked(string level)
     {
+        audioManager.PlayUiButton();
         List<Button> levelButtons = new List<Button> { CasualButton, NoviceButton, ExpertButton, High_RollerButton };
         foreach (Button btn in levelButtons)
         {
@@ -213,6 +215,7 @@ public class InGamePopupManager : MonoBehaviour
 
     private void ConfirmLevelSelection()
     {
+        audioManager.PlayUiButton();
         //isHome = true;
         currentLevel = SelectedButton;
         StartCoroutine(SwitchLevel());

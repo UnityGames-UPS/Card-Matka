@@ -17,6 +17,7 @@ public class UiManager : MonoBehaviour
     [SerializeField] private AnimationManager animationManager;
     [SerializeField] private InGamePopupManager inGamePopupManager;
     [SerializeField] private JSFunctCalls jsFunctCalls;
+    [SerializeField] private LeaderBoardController leaderBoardController;
 
     [Header("Screens UI")]
     [SerializeField] internal GameObject LoadingScreen_Object;
@@ -29,11 +30,15 @@ public class UiManager : MonoBehaviour
     [SerializeField] private GameObject NextRoundTimer_Object;
 
     [Header("Texts")]
+    [SerializeField] private TMP_Text MinBet_Text;
     [SerializeField] private TMP_Text UserId_Text;
     [SerializeField] private TMP_Text RoomId_Text;
     [SerializeField] private TMP_Text Timer_Text;
     [SerializeField] private TMP_Text UserName_Text;
     [SerializeField] private TMP_Text Balance_Text;
+
+    [Header("User Icon")]
+    [SerializeField] private Image UserIcon;
 
     [Header("Win Objects")]
     [SerializeField] private TMP_Text winText;
@@ -71,6 +76,10 @@ public class UiManager : MonoBehaviour
     [SerializeField] private List<GameObject> InfoPages_Objects;
     [SerializeField] private List<GameObject> InfoActive_Objects;
     [SerializeField] private TMP_Text pageInfoText;
+    [SerializeField] private TMP_Text InfoTableFaceCardPayout;
+    [SerializeField] private TMP_Text InfoTableSymbolCardPayout;
+    [SerializeField] private TMP_Text InfoTableTextCardPayout;
+
     private int currentInfoPage = 0;
 
     private bool IsMenuPanelOpen = false;
@@ -150,16 +159,13 @@ public class UiManager : MonoBehaviour
     //[SerializeField]
     //private GameManager gameManager;
 
-    [Space(100)]
     [Header("HomePage")]
     [SerializeField] private Button CloseStartupPanelBtn;
     [SerializeField] private Button ReadmoreStartupPanelBtn;
     [SerializeField] internal GameObject StartupPanel;
-    [SerializeField] private RectTransform ToggleTextObj;
+    [SerializeField] private Toggle ToggleStartupPanel;
 
 
-
-    [Space(100)]
     [Header("gamePage")]
     [SerializeField] internal Button coinSelector;      // Main button
     [SerializeField] private List<Button> Coins;       // Other coins
@@ -170,6 +176,7 @@ public class UiManager : MonoBehaviour
     [SerializeField] private List<Sprite> HighRollerLevelCoins;
 
     [Header("sidePanel")]
+    [SerializeField] private Button CloseMenuButton;
     [SerializeField] private Button MenueButtonGP;
     [SerializeField] private Button GameRulesGP;
     [SerializeField] private Button HistoryGP;
@@ -214,7 +221,12 @@ public class UiManager : MonoBehaviour
     bool isMusic;
     bool isSound;
 
+    private bool _tabMusicOn = true;   // tracks user's chosen music state
+    private bool _tabSoundOn = true;   // tracks user's chosen sound state
 
+    private const string PREF_MUSIC = "isMusicOn";
+    private const string PREF_SOUND = "isSoundOn";
+    private const string PREF_STARTUP = "showStartupPage";
 
 
     private void Start()
@@ -222,6 +234,7 @@ public class UiManager : MonoBehaviour
         //ShowCashoutUI(0.91564f);
 
         assignButtonListeners();
+        LoadPrefs();
 
         // bhutton panel anim
         //  menuMainPos = menuMainButton.anchoredPosition;
@@ -264,6 +277,9 @@ public class UiManager : MonoBehaviour
 
         MenueButtonGP.onClick.RemoveAllListeners();
         MenueButtonGP.onClick.AddListener(ToggleMenuGP);
+
+        CloseMenuButton.onClick.RemoveAllListeners();
+        CloseMenuButton.onClick.AddListener(RetractMenuGP);
 
         InitializeExpandShrink();
     }
@@ -368,10 +384,10 @@ public class UiManager : MonoBehaviour
         //Gamepage
 
         if (GameRulesGP) GameRulesGP.onClick.RemoveAllListeners();
-        if (GameRulesGP) GameRulesGP.onClick.AddListener(delegate { OpenPopup(InfoPopup_Object); MenuPanel_Object.SetActive(false); });
+        if (GameRulesGP) GameRulesGP.onClick.AddListener(delegate { OpenPopup(InfoPopup_Object); MenuPanel_Object.SetActive(false); RetractMenuGP(); audioController.PlayUiButton(); });
 
         if (HistoryGP) HistoryGP.onClick.RemoveAllListeners();
-        if (HistoryGP) HistoryGP.onClick.AddListener(delegate { OpenPopup(HistoryPopup_Object); gameManager.RequestHistory(1); MenuPanel_Object.SetActive(false); });
+        if (HistoryGP) HistoryGP.onClick.AddListener(delegate { OpenPopup(HistoryPopup_Object); gameManager.RequestHistory(1); MenuPanel_Object.SetActive(false); RetractMenuGP(); audioController.PlayUiButton();});
 
         if (SoundGP) SoundGP.onClick.RemoveAllListeners();
         if (SoundGP) SoundGP.onClick.AddListener(delegate { ToggleSound(); });
@@ -386,7 +402,7 @@ public class UiManager : MonoBehaviour
         if (MusicMute_button) MusicMute_button.onClick.AddListener(delegate { ToggleMusic(); });
 
         if (HomeGP) HomeGP.onClick.RemoveAllListeners();
-        if (HomeGP) HomeGP.onClick.AddListener(delegate { OpenPopup(GameQuitPopup); });
+        if (HomeGP) HomeGP.onClick.AddListener(delegate { OpenPopup(GameQuitPopup); RetractMenuGP(); audioController.PlayUiButton(); });
 
 
 
@@ -416,15 +432,16 @@ public class UiManager : MonoBehaviour
 
 
 
-
         if (CloseStartupPanelBtn) CloseStartupPanelBtn.onClick.RemoveAllListeners();
         if (CloseStartupPanelBtn) CloseStartupPanelBtn.onClick.AddListener(delegate
         {
-
             ClosePopup(StartupPanel);
 
-
-
+            if (ToggleStartupPanel != null)
+            {
+                PlayerPrefs.SetInt(PREF_STARTUP, ToggleStartupPanel.isOn ? 1 : 0);
+                PlayerPrefs.Save();
+            }
         });
 
         if (ReadmoreStartupPanelBtn) ReadmoreStartupPanelBtn.onClick.RemoveAllListeners();
@@ -465,7 +482,41 @@ public class UiManager : MonoBehaviour
         // }
     }
 
+    private void LoadPrefs()
+    {
+        // --- Music ---
+        isMusic = PlayerPrefs.GetInt(PREF_MUSIC, 1) == 1;
+        _tabMusicOn = isMusic;
+        Music_button.gameObject.GetComponent<Image>().sprite = isMusic ? MusicImage : MusicMuteImage;
+        audioController.MuteBackground(!isMusic);
 
+        // --- Sound ---
+        isSound = PlayerPrefs.GetInt(PREF_SOUND, 1) == 1;
+        _tabSoundOn = isSound;
+        Sound_button.gameObject.GetComponent<Image>().sprite = isSound ? SoundImage : SoundMuteImage;
+        audioController.MuteGame(!isSound);
+
+        // --- Startup Panel Toggle ---
+        bool showStartup = PlayerPrefs.GetInt(PREF_STARTUP, 1) == 1;
+        if (ToggleStartupPanel != null)
+        {
+            //StartupPanel.SetActive(showStartup);
+            ToggleStartupPanel.onValueChanged.RemoveAllListeners();
+            ToggleStartupPanel.isOn = showStartup;
+            ToggleStartupPanel.onValueChanged.AddListener(OnStartupToggleChanged);
+        }
+        if (StartupPanel != null)
+            if (showStartup)
+            {
+                OpenPopup(StartupPanel);
+            }
+    }
+
+    private void OnStartupToggleChanged(bool value)
+    {
+        PlayerPrefs.SetInt(PREF_STARTUP, value ? 1 : 0);
+        PlayerPrefs.Save();
+    }
 
     internal void LowBalPopup()
     {
@@ -476,6 +527,7 @@ public class UiManager : MonoBehaviour
     {
         if (!isExit)
         {
+            ClosePopup(ReconnectPopup_Object);
             OpenPopup(DisconnectPopup_Object);
         }
     }
@@ -560,50 +612,40 @@ public class UiManager : MonoBehaviour
     private void ToggleMusic()
     {
         isMusic = !isMusic;
-        if (isMusic)
-        {
-            // Music_button.gameObject.SetActive(true);
-            // MusicMute_button.gameObject.SetActive(false);
-            Music_button.gameObject.GetComponent<Image>().sprite = MusicImage;
-            //audioController.ToggleMute(false, "bg");
-            audioController.MuteBackground(false);
-        }
-        else
-        {
-            // Music_button.gameObject.SetActive(false);
-            // MusicMute_button.gameObject.SetActive(true);
-            Music_button.gameObject.GetComponent<Image>().sprite = MusicMuteImage;
-            //audioController.ToggleMute(true, "bg");
-            audioController.MuteBackground(true);
-        }
+        _tabMusicOn = isMusic;   // keep tab-restore tracker in sync
+        Music_button.gameObject.GetComponent<Image>().sprite = isMusic ? MusicImage : MusicMuteImage;
+        audioController.MuteBackground(!isMusic);
+        PlayerPrefs.SetInt(PREF_MUSIC, isMusic ? 1 : 0);
+        PlayerPrefs.Save();
     }
 
 
     private void ToggleSound()
     {
         isSound = !isSound;
-        if (isSound)
-        {
-            // Sound_button.gameObject.SetActive(true);
-            // SoundMute_button.gameObject.SetActive(false);
-            Sound_button.gameObject.GetComponent<Image>().sprite = SoundImage;
-            // if (audioController) audioController.ToggleMute(false, "button");
-            // if (audioController) audioController.ToggleMute(false, "wl");
-            // if (audioController) audioController.ToggleMute(false, "win");
-            // if (audioController) audioController.ToggleMute(false, "bet");
-            audioController.MuteGame(false);
+        _tabSoundOn = isSound;   // keep tab-restore tracker in sync
+        Sound_button.gameObject.GetComponent<Image>().sprite = isSound ? SoundImage : SoundMuteImage;
+        audioController.MuteGame(!isSound);
+        PlayerPrefs.SetInt(PREF_SOUND, isSound ? 1 : 0);
+        PlayerPrefs.Save();
+    }
 
+    internal void OnAppFocusChanged(bool hasFocus)
+    {
+        if (audioController == null) return;
+
+        if (!hasFocus)
+        {
+            // Tab hidden: silence everything without changing the user's
+            // chosen state (isMusic / isSound stay untouched)
+            audioController.MuteBackground(true);
+            audioController.MuteGame(true);
         }
         else
         {
-            // Sound_button.gameObject.SetActive(false);
-            // SoundMute_button.gameObject.SetActive(true);
-            Sound_button.gameObject.GetComponent<Image>().sprite = SoundMuteImage;
-            // if (audioController) audioController.ToggleMute(true, "button");
-            // if (audioController) audioController.ToggleMute(true, "wl");
-            // if (audioController) audioController.ToggleMute(true, "win");
-            // if (audioController) audioController.ToggleMute(true, "bet");
-            audioController.MuteGame(true);
+            // Tab visible again: restore exactly what the user had set
+            audioController.MuteBackground(!_tabMusicOn);
+            audioController.MuteGame(!_tabSoundOn);
         }
     }
 
@@ -622,21 +664,41 @@ public class UiManager : MonoBehaviour
     private void GoToPreviousInfoPage()
     {
         if (audioController) audioController.PlayUiButton();
-        currentInfoPage--;
-        if (currentInfoPage < 0)
-            currentInfoPage = InfoPages_Objects.Count - 1;
-
-        UpdateInfoUI();
+        if (currentInfoPage > 0)
+        {
+            currentInfoPage--;
+            if (currentInfoPage == 0)
+            {
+                InfoLeft_button.interactable = false;
+            }
+            InfoRight_button.interactable = true;
+            UpdateInfoUI();
+        }
+        else
+        {
+            InfoLeft_button.interactable = false;
+            InfoRight_button.interactable = true;
+        }
     }
 
     private void GoToNextInfoPage()
     {
         if (audioController) audioController.PlayUiButton();
-        currentInfoPage++;
-        if (currentInfoPage >= InfoPages_Objects.Count)
-            currentInfoPage = 0;
-
-        UpdateInfoUI();
+        if (currentInfoPage < InfoPages_Objects.Count - 1)
+        {
+            currentInfoPage++;
+            if (currentInfoPage == InfoPages_Objects.Count - 1)
+            {
+                InfoRight_button.interactable = false;
+            }
+            InfoLeft_button.interactable = true;
+            UpdateInfoUI();
+        }
+        else
+        {
+            InfoRight_button.interactable = false;
+            InfoLeft_button.interactable = true;
+        }
     }
 
     #endregion
@@ -721,28 +783,6 @@ public class UiManager : MonoBehaviour
     }
     #endregion
 
-
-    #region  homePage
-
-    void StartScroll()
-    {
-        // Start at "fromX"
-        ToggleTextObj.anchoredPosition = new Vector2(1000f, startPos.y);
-
-        // Tween to "toX"
-        ToggleTextObj.DOAnchorPosX(-1000f, 10f)
-            .SetEase(Ease.Linear)
-            .OnComplete(() =>
-            {
-                ToggleTextObj.anchoredPosition = new Vector2(1000f, startPos.y);
-                StartScroll(); // repeat
-            });
-    }
-
-
-
-    #endregion
-
     #region  gamePage
 
 
@@ -800,7 +840,7 @@ public class UiManager : MonoBehaviour
                 coinSelector.transform.localPosition,
                 duration
             )
-            .SetEase(Ease.InBack)
+
             .OnComplete(() => coin.gameObject.SetActive(false));
 
             coin.GetComponent<CanvasGroup>().DOFade(0, duration);
@@ -852,6 +892,7 @@ public class UiManager : MonoBehaviour
 
     private void ToggleMenuGP()
     {
+        audioController.PlayUiButton();
         if (isMenueExpanded)
             RetractMenuGP();
         else
@@ -860,53 +901,84 @@ public class UiManager : MonoBehaviour
 
     private void ExpandMenuGP()
     {
-        sidepanelGP.SetActive(true); // show panel immediately
+        // Disable button during animation to prevent spam
+        MenueButtonGP.interactable = false;
+
+        sidepanelGP.SetActive(true);
 
         for (int i = 0; i < menuButtonsGP.Count; i++)
         {
             var btn = menuButtonsGP[i];
-            btn.gameObject.SetActive(true);
-
-            //btn.transform.localPosition = MenueButtonGP.transform.localPosition;
-
+            var capturedBtn = btn;          // ← capture for closure
             float delay = i * delayStep;
 
-            btn.transform.DOLocalMoveY(
+            // Kill any in-progress tween on this button before starting new one
+            capturedBtn.transform.DOKill(false);
+            capturedBtn.GetComponent<CanvasGroup>().DOKill(false);
+
+            capturedBtn.gameObject.SetActive(true);
+
+            // Reset position to the menu button so it always slides from the same origin
+            capturedBtn.transform.localPosition = new Vector3(
+                capturedBtn.transform.localPosition.x,
+                MenueButtonGP.transform.localPosition.y,
+                capturedBtn.transform.localPosition.z
+            );
+            capturedBtn.GetComponent<CanvasGroup>().alpha = 0f;
+
+            capturedBtn.transform.DOLocalMoveY(
                 MenueButtonGP.transform.localPosition.y - spacing * 1.5f * (i + 1),
                 duration
             ).SetEase(Ease.OutBack).SetDelay(delay);
 
-            btn.GetComponent<CanvasGroup>().DOFade(1, duration).SetDelay(delay);
+            bool isLast = (i == menuButtonsGP.Count - 1);
+            capturedBtn.GetComponent<CanvasGroup>()
+                .DOFade(1, duration)
+                .SetDelay(delay)
+                .OnComplete(() =>
+                {
+                    // Re-enable button only after the last button finishes animating in
+                    if (isLast)
+                    {
+                        isMenueExpanded = true;
+                        MenueButtonGP.interactable = true;
+                    }
+                });
         }
-
-        isMenueExpanded = true;
     }
 
     private void RetractMenuGP()
     {
+        // Disable button during animation to prevent spam
+        MenueButtonGP.interactable = false;
+
         for (int i = 0; i < menuButtonsGP.Count; i++)
         {
-            var btn = menuButtonsGP[i];
+            var capturedBtn = menuButtonsGP[i];   // ← capture for closure
             float delay = i * delayStep;
-
-            // If it's the last button → turn off sidepanel after animation
             bool isLast = (i == menuButtonsGP.Count - 1);
 
-            btn.transform.DOLocalMoveY(
+            // Kill any in-progress tween on this button before starting new one
+            capturedBtn.transform.DOKill(false);
+            capturedBtn.GetComponent<CanvasGroup>().DOKill(false);
+
+            capturedBtn.transform.DOLocalMoveY(
                 MenueButtonGP.transform.localPosition.y,
                 duration
             ).SetEase(Ease.InBack).SetDelay(delay)
              .OnComplete(() =>
              {
-                 btn.gameObject.SetActive(false);
+                 capturedBtn.gameObject.SetActive(false);  // ← now uses correct captured reference
                  if (isLast)
-                     sidepanelGP.SetActive(false); // hide panel after last finishes
+                 {
+                     sidepanelGP.SetActive(false);
+                     isMenueExpanded = false;
+                     MenueButtonGP.interactable = true;  // re-enable only after animation fully done
+                 }
              });
 
-            btn.GetComponent<CanvasGroup>().DOFade(0, duration).SetDelay(delay);
+            capturedBtn.GetComponent<CanvasGroup>().DOFade(0, duration).SetDelay(delay);
         }
-
-        isMenueExpanded = false;
     }
     #endregion
 
@@ -1009,26 +1081,52 @@ public class UiManager : MonoBehaviour
         if (cg == null)
             cg = winText.gameObject.AddComponent<CanvasGroup>();
 
-        // reset state
-        winText.text = "+" + winAmount.ToString();
+        // Kill any previous animation on this object before starting a new one
+        winRect.DOKill(true);
+        cg.DOKill(true);
 
-        winRect.anchoredPosition = new Vector2(winRect.anchoredPosition.x, 0f);
+        // Format signed net amount — prefix + for wins, - is automatic for negatives
+        if (winAmount > 0)
+        {
+            winText.text = "+" + winAmount.ToString("0.##");
+            //winText.color = Color.green;
+        }
+        else if (winAmount < 0)
+        {
+            winText.text = winAmount.ToString("0.##"); // already has "-"
+            //winText.color = Color.red;
+        }
+        // else
+        // {
+        //     winText.text = "0";
+        //     winText.color = Color.white;
+        // }
+
+        // Reset state
+        winRect.anchoredPosition = new Vector2(winRect.anchoredPosition.x, -40f);
         winRect.localScale = Vector3.zero;
         cg.alpha = 0f;
 
         Sequence seq = DOTween.Sequence();
 
-        // Fade + Scale + Move together
-        seq.Join(cg.DOFade(1f, 0.35f));
-        seq.Join(winRect.DOScale(1f, 0.35f).SetEase(Ease.OutBack));
-        seq.Join(winRect.DOAnchorPosY(250f, 0.8f).SetEase(Ease.OutCubic));
+        seq.Join(cg.DOFade(1f, 0.3f));
+        seq.Join(winRect.DOScale(1f, 0.3f).SetEase(Ease.OutBack));
+        seq.Join(winRect.DOAnchorPosY(40f, 0.8f).SetEase(Ease.OutCubic));
 
-        // optional hold
-        seq.AppendInterval(0.5f);
+        seq.AppendInterval(0.3f);
 
-        // fade out
-        seq.Append(cg.DOFade(0f, 0.3f));
-        winText.text = "";
+        seq.Join(winRect.DOAnchorPosY(170f,0.8f).SetEase(Ease.OutCubic));
+        seq.AppendInterval(0.1f);
+        //seq.Join(winRect.DOScale(0f,0.3f).SetEase(Ease.OutCubic));
+        seq.Join(cg.DOFade(0f, 0.3f));
+
+        seq.OnComplete(() =>
+        {
+            winText.text = "";
+            //winText.color = Color.white;   // reset for next round
+            winRect.localScale = Vector3.zero;
+            cg.alpha = 0f;
+        });
     }
 
     internal void SetInitialRoomJoinData(Root roomData, GameData initialData)
@@ -1036,6 +1134,7 @@ public class UiManager : MonoBehaviour
         RoomId_Text.text = roomData.Payload.roomId;
 
         string level = roomData.Payload.level;
+
         gameManager.OnLeaderboardUpdate(roomData.Payload.leaderboards);
         // Coins.Clear();
         // foreach (var coin in Coins)
@@ -1070,6 +1169,8 @@ public class UiManager : MonoBehaviour
                 betManager.chipSprites = null;
                 betManager.chipSprites = CasualLevelCoins.ToArray();
                 betManager.chipDenominations = coinValues.ToArray();
+
+                MinBet_Text.text = coinValues[0].ToString();
             }
             else if (level == "novice")
             {
@@ -1095,6 +1196,8 @@ public class UiManager : MonoBehaviour
                 betManager.chipSprites = null;
                 betManager.chipSprites = NoviceLevelCoins.ToArray();
                 betManager.chipDenominations = coinValues.Select(x => (double)x).ToArray();
+
+                MinBet_Text.text = coinValues[0].ToString();
             }
             else if (level == "expert")
             {
@@ -1120,6 +1223,8 @@ public class UiManager : MonoBehaviour
                 betManager.chipSprites = null;
                 betManager.chipSprites = ExpertLevelCoins.ToArray();
                 betManager.chipDenominations = coinValues.Select(x => (double)x).ToArray();
+
+                MinBet_Text.text = coinValues[0].ToString();
             }
             else if (level == "high_roller")
             {
@@ -1145,6 +1250,8 @@ public class UiManager : MonoBehaviour
                 betManager.chipSprites = null;
                 betManager.chipSprites = HighRollerLevelCoins.ToArray();
                 betManager.chipDenominations = coinValues.Select(x => (double)x).ToArray();
+
+                MinBet_Text.text = coinValues[0].ToString();
             }
         }
     }
@@ -1155,7 +1262,26 @@ public class UiManager : MonoBehaviour
         UserId_Text.text = socketManager.playerdata.username;
         UserName_Text.text = socketManager.playerdata.username;
         Balance_Text.text = socketManager.playerdata.balance.ToString();
+
+        InfoTableFaceCardPayout.text = gameData.wagers.op_bets.J_clubs.payout[0].ToString() + ":" + gameData.wagers.op_bets.J_clubs.payout[1].ToString();
+        InfoTableSymbolCardPayout.text = gameData.wagers.side_bets.specific_Clubs.payout[0].ToString() + ":" + gameData.wagers.side_bets.specific_Clubs.payout[1].ToString();
+        InfoTableTextCardPayout.text = gameData.wagers.main_bets.J.payout[0].ToString() + ":" + gameData.wagers.main_bets.J.payout[1].ToString();
+
+        // Assign the local player's profile icon from the shared avatar pool
+        if (UserIcon != null && leaderBoardController != null)
+        {
+            Sprite avatar = leaderBoardController.GetOrAssignAvatar(socketManager.playerdata.username);
+            if (avatar != null)
+            {
+                UserIcon.sprite = avatar;
+                UserIcon.enabled = true;
+            }
+            else
+            {
+                UserIcon.enabled = false;
+            }
+        }
+
         inGamePopupManager.SetInitialGameData(gameData);
     }
-
 }

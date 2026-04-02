@@ -5,6 +5,7 @@ using UnityEngine.UI;
 using TMPro;
 using DG.Tweening;
 using System;
+using Unity.VisualScripting;
 
 public class GameManager : MonoBehaviour
 {
@@ -48,6 +49,14 @@ public class GameManager : MonoBehaviour
     //     StartCoroutine(ShowPopup("Hello"));
     // }
 
+    private void Start()
+    {
+        foreach (var blackbg in CardBlackBg)
+        {
+            blackbg.AddComponent<CanvasGroup>();
+        }
+    }
+
     internal void OnInitData(GameData gameData, Player player)
     {
         Debug.Log("GameManager: Init data received");
@@ -72,6 +81,25 @@ public class GameManager : MonoBehaviour
 
         if (leaderboards != null)
             UpdateLeaderboardUI(leaderboards);
+
+        if (socketManager.roomData.Payload.roundState != null)
+        {
+            SetRoomJoinPhase(socketManager.roomData.Payload.roundState.phase);
+        }
+    }
+
+    private void SetRoomJoinPhase(string phase)
+    {
+        switch (phase)
+        {
+            case "betting":
+                SetPhase(GamePhase.Betting);
+                OnRoundStart(socketManager.roomData.Payload.roundState.roundId);
+                break;
+
+            default:
+                break;
+        }
     }
 
     internal void OnRoundStart(string roundId)
@@ -107,17 +135,22 @@ public class GameManager : MonoBehaviour
         uiManager.RetractCoins();
         uiManager.coinSelector.interactable = false;
         betManager.SlideOutToLeft(betManager.BetButtonPanel);
+        betManager.SlideOutToLeft(betManager.RepeatBetPanel);
         SetPhase(GamePhase.Bonus);
-        audioManager.PlayBetLocked();
         uiManager.SetPhase();
-        foreach (var d in bonusData.bonus)
-        {
-            Debug.Log($"GameManager: Bonus → key:{d.Key} value:{d.Value}");
-            string bonusPosition = d.Key;
-            int bonusMultiplier = d.Value;
-            uiManager.BetLocked(bonusPosition, bonusMultiplier);
-        }
         ToggleCardBlackBg(true);
+        audioManager.PlayRoundClosed();
+        if (bonusData != null)
+        {
+            audioManager.PlayBonus();
+            foreach (var d in bonusData.bonus)
+            {
+                Debug.Log($"GameManager: Bonus → key:{d.Key} value:{d.Value}");
+                string bonusPosition = d.Key;
+                int bonusMultiplier = d.Value;
+                uiManager.BetLocked(bonusPosition, bonusMultiplier);
+            }
+        }
     }
 
 
@@ -141,7 +174,12 @@ public class GameManager : MonoBehaviour
 
         SetPhase(GamePhase.Cashout);
         uiManager.SetPhase();
+        StartCoroutine(Cashout(winAmount, balance, payouts, leaderboards));
+    }
 
+    private IEnumerator Cashout(double winAmount, double balance, List<Payout> payouts, Leaderboards leaderboards)
+    {
+        yield return new WaitUntil(() => animationManager.isCardWinAnimationComplete);
         // Handle current player's win animation
         betManager.OnCashout(winAmount, balance);
         uiManager.UpdateBalance(balance);
@@ -168,7 +206,6 @@ public class GameManager : MonoBehaviour
         if (leaderboards != null)
             UpdateLeaderboardUI(leaderboards);
     }
-
 
     internal void OnRoundEnd(string roundId)
     {
@@ -247,8 +284,26 @@ public class GameManager : MonoBehaviour
     {
         foreach (var bg in CardBlackBg)
         {
-            if (bg != null)
+            //if (bg != null)
+            if (show)
+            {
                 bg.SetActive(show);
+                CanvasGroup cg = bg.GetComponent<CanvasGroup>();
+                cg.DOKill();
+                cg.alpha = 0;
+                cg.DOFade(1f, 0.7f).SetEase(Ease.InOutSine)
+                    .WaitForCompletion();
+            }
+            else
+            {
+                CanvasGroup cg = bg.GetComponent<CanvasGroup>();
+                cg.DOKill();
+                cg.alpha = 1;
+                cg.DOFade(0f, 0.7f).SetEase(Ease.OutSine).
+                    OnComplete(() =>
+                    bg.SetActive(show)
+                    );
+            }
         }
     }
 

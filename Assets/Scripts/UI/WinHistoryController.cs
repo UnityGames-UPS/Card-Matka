@@ -106,7 +106,7 @@ public class WinHistoryController : MonoBehaviour
     private bool isStatPanelOpen = false;
     private Vector3 cardPanelStartPos;
     private Vector2 smallStartPanelDimension;
-    private bool isAutoOpenStatPanelDisable = false;
+    private bool isAutoOpenStatPanelDisable = true;
 
     private Dictionary<string, int> suitCounts = new Dictionary<string, int>
         { { "spade", 0 }, { "heart", 0 }, { "club", 0 }, { "diamond", 0 } };
@@ -628,7 +628,7 @@ public class WinHistoryController : MonoBehaviour
             Vector2 newSize = new Vector2(1081.6f, 744.3838f);
             CardPanel.transform.DOLocalMove(cardPanelStartPos + new Vector3(-172f, 0, 0), 0.55f);
 
-            rect.DOSizeDelta(newSize, 0.35f)
+            rect.DOSizeDelta(newSize, 0.45f)
                 .SetEase(Ease.OutCubic)
                 .OnComplete(() =>
                 {
@@ -638,7 +638,7 @@ public class WinHistoryController : MonoBehaviour
                 });
 
             // Tell the line refresh loop the panel is animating for 0.6s
-            NotifyPanelAnimating(0.35f);
+            NotifyPanelAnimating(0.6f);
         }
         else
         {
@@ -660,7 +660,7 @@ public class WinHistoryController : MonoBehaviour
                 );
 
             // Tell the line refresh loop the panel is animating for 0.6s
-            NotifyPanelAnimating(0.4f);
+            NotifyPanelAnimating(0.6f);
         }
     }
 

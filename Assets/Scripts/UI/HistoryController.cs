@@ -15,6 +15,9 @@ public class HistoryController : MonoBehaviour
     [SerializeField] private TMP_Text TotalPageInfo_Text;
     [SerializeField] private Button PrevPage_Button;
     [SerializeField] private Button NextPage_Button;
+    [SerializeField] private Button PrevPageDouble_Button;
+    [SerializeField] private Button NextPageDouble_Button;
+
 
     [Header("Sprites")]
     [SerializeField] internal Sprite ClubsSprite;
@@ -39,6 +42,9 @@ public class HistoryController : MonoBehaviour
         PrevPage_Button?.onClick.AddListener(OnPrevPage);
         NextPage_Button?.onClick.AddListener(OnNextPage);
 
+        PrevPageDouble_Button?.onClick.AddListener(OnPrevDoublePage);
+        NextPageDouble_Button?.onClick.AddListener(OnNextDoublePage);
+
         // Hide all rows at startup
         foreach (var row in HistoryRows)
             row.gameObject.SetActive(false);
@@ -60,12 +66,62 @@ public class HistoryController : MonoBehaviour
 
     private void OnPrevPage()
     {
-        if (currentPage > 1) RequestPage(currentPage - 1);
+        if (currentPage > 1)
+        {
+            RequestPage(currentPage - 1);
+            NextPage_Button.interactable = true;
+            NextPageDouble_Button.interactable = true;
+        }
+        else
+        {
+            PrevPage_Button.interactable = false;
+            PrevPageDouble_Button.interactable = false;
+        }
     }
 
     private void OnNextPage()
     {
-        if (currentPage < totalPages) RequestPage(currentPage + 1);
+        if (currentPage < totalPages)
+        {
+            RequestPage(currentPage + 1);
+            PrevPage_Button.interactable = true;
+            PrevPageDouble_Button.interactable = true;
+        }
+        else
+        {
+            NextPage_Button.interactable = false;
+            NextPageDouble_Button.interactable = false;
+        }
+    }
+
+    private void OnPrevDoublePage()
+    {
+        if (currentPage > 1)
+        {
+            RequestPage(1);
+            NextPageDouble_Button.interactable = true;
+            NextPage_Button.interactable = true;
+        }
+        else
+        {
+            PrevPage_Button.interactable = false;
+            PrevPageDouble_Button.interactable = false;
+        }
+    }
+
+    private void OnNextDoublePage()
+    {
+        if (currentPage < totalPages)
+        {
+            RequestPage(totalPages);
+            PrevPage_Button.interactable = true;
+            PrevPageDouble_Button.interactable = true;
+        }
+        else
+        {
+            NextPage_Button.interactable = false;
+            NextPageDouble_Button.interactable = false;
+        }
     }
 
     private void RequestPage(int page)
@@ -106,8 +162,23 @@ public class HistoryController : MonoBehaviour
     private void SetNavButtonsInteractable(bool enable)
     {
         if (PrevPage_Button != null)
-            PrevPage_Button.interactable = enable && currentPage > 1;
+            if (currentPage > 1)
+            {
+                PrevPage_Button.interactable = enable;
+                PrevPageDouble_Button.interactable = enable;
+            }
         if (NextPage_Button != null)
-            NextPage_Button.interactable = enable && currentPage < totalPages;
+            if (currentPage < totalPages)
+            {
+                NextPage_Button.interactable = enable;
+                NextPageDouble_Button.interactable = enable;
+            }
+        if (totalPages == 1)
+        {
+            PrevPage_Button.interactable = false;
+            PrevPageDouble_Button.interactable = false;
+            NextPage_Button.interactable = false;
+            NextPageDouble_Button.interactable = false;
+        }
     }
 }
