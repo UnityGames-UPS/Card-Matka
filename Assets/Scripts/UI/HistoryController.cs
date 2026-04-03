@@ -156,29 +156,17 @@ public class HistoryController : MonoBehaviour
         if (TotalPageInfo_Text != null)
             TotalPageInfo_Text.text = $"{totalPages}";
 
-        SetNavButtonsInteractable(true);
+        SetNavButtonsInteractable(true); // param ignored now, just refreshes state
     }
 
     private void SetNavButtonsInteractable(bool enable)
     {
-        if (PrevPage_Button != null)
-            if (currentPage > 1)
-            {
-                PrevPage_Button.interactable = enable;
-                PrevPageDouble_Button.interactable = enable;
-            }
-        if (NextPage_Button != null)
-            if (currentPage < totalPages)
-            {
-                NextPage_Button.interactable = enable;
-                NextPageDouble_Button.interactable = enable;
-            }
-        if (totalPages == 1)
-        {
-            PrevPage_Button.interactable = false;
-            PrevPageDouble_Button.interactable = false;
-            NextPage_Button.interactable = false;
-            NextPageDouble_Button.interactable = false;
-        }
+        bool canGoPrev = currentPage > 1;
+        bool canGoNext = currentPage < totalPages;
+
+        if (PrevPage_Button != null) PrevPage_Button.interactable = canGoPrev;
+        if (PrevPageDouble_Button != null) PrevPageDouble_Button.interactable = canGoPrev;
+        if (NextPage_Button != null) NextPage_Button.interactable = canGoNext;
+        if (NextPageDouble_Button != null) NextPageDouble_Button.interactable = canGoNext;
     }
 }

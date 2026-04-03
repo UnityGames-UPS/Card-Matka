@@ -387,7 +387,7 @@ public class UiManager : MonoBehaviour
         if (GameRulesGP) GameRulesGP.onClick.AddListener(delegate { OpenPopup(InfoPopup_Object); MenuPanel_Object.SetActive(false); RetractMenuGP(); audioController.PlayUiButton(); });
 
         if (HistoryGP) HistoryGP.onClick.RemoveAllListeners();
-        if (HistoryGP) HistoryGP.onClick.AddListener(delegate { OpenPopup(HistoryPopup_Object); gameManager.RequestHistory(1); MenuPanel_Object.SetActive(false); RetractMenuGP(); audioController.PlayUiButton();});
+        if (HistoryGP) HistoryGP.onClick.AddListener(delegate { OpenPopup(HistoryPopup_Object); gameManager.RequestHistory(1); MenuPanel_Object.SetActive(false); RetractMenuGP(); audioController.PlayUiButton(); });
 
         if (SoundGP) SoundGP.onClick.RemoveAllListeners();
         if (SoundGP) SoundGP.onClick.AddListener(delegate { ToggleSound(); });
@@ -825,32 +825,44 @@ public class UiManager : MonoBehaviour
             // Fade-in
             coin.GetComponent<CanvasGroup>().DOFade(1, duration);
         }
-        BigChipObject.transform.DOLocalMoveY(coinSelector.transform.localPosition.y + 30f, 0.3f);
+        BigChipObject.transform.DOLocalMoveY(coinSelector.transform.localPosition.y + 30f, 0.3f).OnComplete(() =>
+        {
+            coinSelector.interactable = true;
+        });
 
         isexpanded = true;
-        coinSelector.interactable = true;
     }
 
     internal void RetractCoins()
     {
         BigChipObject.transform.DOLocalMoveY(coinSelector.transform.localPosition.y, 0.3f);
+
         for (int i = 0; i < Coins.Count; i++)
         {
             var coin = Coins[i];
+            bool isLast = (i == Coins.Count - 1);   // ← track last coin
 
             coin.transform.DORotate(new Vector3(0, 0, 90), duration).SetEase(Ease.InOutSine);
             coin.transform.DOLocalMove(
                 coinSelector.transform.localPosition,
                 duration
             )
-
-            .OnComplete(() => coin.gameObject.SetActive(false));
+            .OnComplete(() =>
+            {
+                coin.gameObject.SetActive(false);
+                if (isLast)
+                    coinSelector.interactable = true;   // ← re-enable only after last coin lands
+                if(!(gameManager.currentPhase == GameManager.GamePhase.Betting))
+                {
+                    coinSelector.interactable = false;
+                }
+            });
 
             coin.GetComponent<CanvasGroup>().DOFade(0, duration);
         }
 
         isexpanded = false;
-        coinSelector.interactable = true;
+        // ← removed the immediate coinSelector.interactable = true here
     }
 
 
@@ -1119,7 +1131,7 @@ public class UiManager : MonoBehaviour
 
         seq.AppendInterval(0.3f);
 
-        seq.Join(winRect.DOAnchorPosY(170f,0.8f).SetEase(Ease.OutCubic));
+        seq.Join(winRect.DOAnchorPosY(170f, 0.8f).SetEase(Ease.OutCubic));
         seq.AppendInterval(0.1f);
         //seq.Join(winRect.DOScale(0f,0.3f).SetEase(Ease.OutCubic));
         seq.Join(cg.DOFade(0f, 0.3f));

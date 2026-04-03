@@ -177,7 +177,7 @@ public class BetManager : MonoBehaviour
         if (totalBet == 0)
             SlideOutToLeft(BetButtonPanel);
 
-        if (hasPlacedBet && !isBettingOpen && totalBet == 0)
+        if (hasPlacedBet && isBettingOpen && totalBet == 0)
             SlideInFromLeft(RepeatBetPanel);
     }
 
@@ -281,7 +281,11 @@ public class BetManager : MonoBehaviour
     internal void SendUndo() => socketManager.SendUndo();
     internal void SendCancel() => socketManager.SendCancle();
     internal void SendDouble() => socketManager.SendDouble();
-    internal void SendRepeat() => socketManager.SendRepeat();
+    internal void SendRepeat()
+    {
+        socketManager.SendRepeat();
+        RepeatBetButton.interactable = false;
+    }
 
     internal void OnCashout(double winAmount, double balance)
     {

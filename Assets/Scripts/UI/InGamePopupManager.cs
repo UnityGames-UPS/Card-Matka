@@ -216,6 +216,11 @@ public class InGamePopupManager : MonoBehaviour
     private void ConfirmLevelSelection()
     {
         audioManager.PlayUiButton();
+        if(currentLevel == SelectedButton)
+        {
+            CloseLevelPopup();
+            return;
+        }
         //isHome = true;
         currentLevel = SelectedButton;
         StartCoroutine(SwitchLevel());
