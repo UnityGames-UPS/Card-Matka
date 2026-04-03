@@ -789,6 +789,7 @@ public class UiManager : MonoBehaviour
 
     private void ToggleCoins()
     {
+        coinSelector.interactable = false;
         if (isexpanded)
             RetractCoins();
         else
@@ -827,6 +828,7 @@ public class UiManager : MonoBehaviour
         BigChipObject.transform.DOLocalMoveY(coinSelector.transform.localPosition.y + 30f, 0.3f);
 
         isexpanded = true;
+        coinSelector.interactable = true;
     }
 
     internal void RetractCoins()
@@ -848,6 +850,7 @@ public class UiManager : MonoBehaviour
         }
 
         isexpanded = false;
+        coinSelector.interactable = true;
     }
 
 

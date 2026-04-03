@@ -416,7 +416,7 @@ public class BetManager : MonoBehaviour
                         .SetDelay(capturedStagger).SetEase(Ease.InOutQuad)
                         .OnComplete(() =>
                         {
-                            profitChip.transform.DOScale(Vector3.one * 0.85f, 0.12f).SetEase(Ease.OutSine)
+                            profitChip.transform.DOScale(Vector3.one, 0.12f).SetEase(Ease.OutSine)
                                 .OnComplete(() =>
                                     profitChip.transform.DOPunchScale(new Vector3(0.12f, -0.12f, 0f), 0.15f, 4, 0.4f));
                         });
@@ -738,7 +738,7 @@ public class BetManager : MonoBehaviour
                         .SetDelay(capturedIncomingDelay).SetEase(Ease.InOutQuad)
                         .OnComplete(() =>
                         {
-                            winChip.transform.DOScale(Vector3.one * 0.85f, 0.12f).SetEase(Ease.OutSine)
+                            winChip.transform.DOScale(Vector3.one, 0.12f).SetEase(Ease.OutSine)
                                 .OnComplete(() =>
                                     winChip.transform.DOPunchScale(new Vector3(0.12f, -0.12f, 0f), 0.15f, 4, 0.4f));
                         });
@@ -1172,6 +1172,10 @@ public class BetManager : MonoBehaviour
 
     private void SlideInFromLeft(GameObject panel)
     {
+        UndoButton.interactable = false;
+        CancelButton.interactable = false;
+        DoubleButton.interactable = false;
+        RepeatBetButton.interactable = false;
         if (panel == null) return;
         if (panel == BetButtonPanel)
         {
@@ -1191,11 +1195,22 @@ public class BetManager : MonoBehaviour
 
         panel.SetActive(true);
         rect.anchoredPosition = new Vector2(homeX - 200f, rect.anchoredPosition.y); // start offscreen
-        rect.DOAnchorPosX(homeX, 0.7f).SetEase(Ease.OutCubic);
+        rect.DOAnchorPosX(homeX, 0.7f).SetEase(Ease.OutCubic)
+            .OnComplete(() =>
+            {
+                UndoButton.interactable = true;
+                CancelButton.interactable = true;
+                DoubleButton.interactable = true;
+                RepeatBetButton.interactable = true;
+            });
     }
 
     internal void SlideOutToLeft(GameObject panel)
     {
+        UndoButton.interactable = false;
+        CancelButton.interactable = false;
+        DoubleButton.interactable = false;
+        RepeatBetButton.interactable = false;
         if (panel == null) return;
         RecordPanelHomes();
 
@@ -1210,6 +1225,11 @@ public class BetManager : MonoBehaviour
                 panel.SetActive(false);
                 // Reset to home so SlideIn always starts from a known position
                 rect.anchoredPosition = new Vector2(homeX, rect.anchoredPosition.y);
+                UndoButton.interactable = true;
+                CancelButton.interactable = true;
+                DoubleButton.interactable = true;
+                RepeatBetButton.interactable = true;
             });
+
     }
 }

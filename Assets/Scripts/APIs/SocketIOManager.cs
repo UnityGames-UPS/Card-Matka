@@ -869,9 +869,9 @@ public class SocketIOManager : MonoBehaviour
             isFirstRoom = false;
             //uiManager.OpenPopup(uiManager.StartupPanel);
         }
-        gameManager.OnRoomEnter(roomData.Payload.stats, roomData.Payload.leaderboards);
-        gameManager.OnLobbyCount(roomData.Payload.playerCount);
         gameManager.ToggleCardBlackBg(true);
+        gameManager.OnLobbyCount(roomData.Payload.playerCount);
+        gameManager.OnRoomEnter(roomData.Payload.stats, roomData.Payload.leaderboards);
         //if (roomData.success == false)
         //{
         //StartCoroutine(gameManager.ShowLoadingPage("Loading...."));
@@ -923,6 +923,8 @@ public class SocketIOManager : MonoBehaviour
         NormalStart = true;
         Debug.Log("Round Started\n" + json);
         gameLoopData = JsonConvert.DeserializeObject<Root>(json);
+        betManager.OnRoundEnd();
+        gameManager.OnRoundEnd(gameLoopData.roundId);
         betManager.OnRoundStart();
         gameManager.OnRoundStart(gameLoopData.roundId);
         gameManager.OnLobbyCount(gameLoopData.playerCount);

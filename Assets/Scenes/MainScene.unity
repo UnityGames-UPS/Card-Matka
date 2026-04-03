@@ -5115,7 +5115,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxDeltaTimeCap: 0.1
-  heartbeatInterval: 20
 --- !u!1 &86936992
 GameObject:
   m_ObjectHideFlags: 0
@@ -72290,7 +72289,7 @@ MonoBehaviour:
   betManager: {fileID: 1637682936}
   inGamePopupManager: {fileID: 86936993}
   JSManager: {fileID: 1519490010}
-  testToken: dc01319f1fb54130805de59ce768d8f7
+  testToken: d2dfbe7408884f75a5c28fa06e88965d
   RaycastBlocker: {fileID: 682516888}
 --- !u!4 &1272847617
 Transform:

@@ -129,7 +129,7 @@ public class HistoryController : MonoBehaviour
         if (waitingForData) return;
         waitingForData = true;
         gameManager.RequestHistory(page);
-        SetNavButtonsInteractable(false); // disable while waiting
+        //SetNavButtonsInteractable(false); // disable while waiting
     }
 
 

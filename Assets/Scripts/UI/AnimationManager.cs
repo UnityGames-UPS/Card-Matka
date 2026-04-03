@@ -419,7 +419,7 @@ public class AnimationManager : MonoBehaviour
 
             // WinAnimationObject on the BetButton — stop ImageAnimation then hide
             BetButton betButton = cardObject.GetComponent<Button>().GetComponent<BetButton>();
-            if (betButton != null && betButton.WinAnimationObject != null)
+            //if (betButton != null && betButton.WinAnimationObject != null)
                 StopAndHideImageAnimation(betButton.WinAnimationObject);
         }
 
@@ -434,10 +434,10 @@ public class AnimationManager : MonoBehaviour
     /// </summary>
     private void StopAndHideImageAnimation(GameObject obj)
     {
-        if (obj == null) return;
+        //if (obj == null) return;
 
         ImageAnimation anim = obj.GetComponent<ImageAnimation>();
-        if (anim != null)
+        //if (anim != null)
             anim.ResetAnimationState();   // stops coroutine + resets to frame 0
 
         obj.SetActive(false);
