@@ -12,5 +12,5 @@ jobs:
     with:
       s3_bucket: unity.build-dev-b2b
       s3_folder: ML-CM
-      cloudfront_distribution_id: ERDVMYSDM278F
+      cloudfront_distribution_id: E378YMF6D9XCK8
       invalidate_paths: "/ML-CM/*"
