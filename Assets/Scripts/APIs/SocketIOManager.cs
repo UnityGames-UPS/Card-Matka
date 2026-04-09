@@ -282,10 +282,21 @@ public class SocketIOManager : MonoBehaviour
     } //Back2 end
     private void OnError(Error err)
     {
-        Debug.LogError("Socket Error Message: " + err);
+        Debug.LogError("[ERROR] Socket error: " + err); 
+        if (!string.IsNullOrEmpty(err.message) && err.message.Contains("Session expired"))
+        {
+            Debug.LogWarning("Session expired detected");
+            OnDisconnected();
+#if UNITY_WEBGL && !UNITY_EDITOR
+    JSManager.SendCustomMessage("session_expired");
+#endif
+        }
+        else
+        {
 #if UNITY_WEBGL && !UNITY_EDITOR
     JSManager.SendCustomMessage("error");
 #endif
+        }
     }
     private void OnListenTimeEvent(string data)
     {
