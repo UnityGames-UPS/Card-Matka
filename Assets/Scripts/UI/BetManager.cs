@@ -46,6 +46,9 @@ public class BetManager : MonoBehaviour
     [Tooltip("Position from which winning chips fly TO the bet button on other-player win")]
     [SerializeField] private RectTransform winChipSpawnOrigin;
 
+    [Header("Chip Temporary Parent")]
+    [SerializeField] private RectTransform tempChipParent; // Used to hold chips during the cashout animation when they fly to the profile icon
+
     [Header("Bet Buttons")]
     [SerializeField] internal GameObject RepeatBetPanel;
     [SerializeField] private Button RepeatBetButton;
@@ -220,6 +223,11 @@ public class BetManager : MonoBehaviour
             if (isFirst) pulseScheduled = true;
 
             captured.transform.DOKill();
+
+            // Reparent to tempChipParent in world space so the chip is detached
+            // from its original bet-button parent before animating; local position
+            // is NOT used here — world position is preserved via worldPositionStays:true.
+            captured.transform.SetParent(tempChipParent, worldPositionStays: true);
 
             Vector3 risePos = captured.transform.position + new Vector3(0f, 10f, 0f);
 
@@ -457,6 +465,11 @@ public class BetManager : MonoBehaviour
                 if (isFirst) pulseScheduled = true;
 
                 captured.transform.DOKill();
+
+                // Reparent to tempChipParent in world space before the fly animation
+                // so the chip is no longer a child of WinAnimationObject while in flight.
+                // worldPositionStays:true keeps the chip visually where it is.
+                captured.transform.SetParent(tempChipParent, worldPositionStays: true);
 
                 Vector3 risePos = captured.transform.position + new Vector3(0f, 10f, 0f);
 
@@ -736,6 +749,8 @@ public class BetManager : MonoBehaviour
                     winChip.transform.position = spawnPos;
                     winChip.transform.localScale = Vector3.zero;
 
+                    winChip.transform.SetParent(tempChipParent);
+
                     winChip.transform.DOScale(Vector3.one, 0.15f)
                         .SetDelay(capturedIncomingDelay).SetEase(Ease.OutBack);
                     winChip.transform.DOMove(bb.chipParent.position, 0.45f)
@@ -778,6 +793,12 @@ public class BetManager : MonoBehaviour
 
                     captured.transform.DOKill();
 
+                    // Reparent to tempChipParent in world space before the fly animation
+                    // so the chip is no longer a child of the bet button / WinAnimationObject.
+                    // worldPositionStays:true tracks target position in world space and
+                    // keeps the chip visually where it is on screen.
+                    captured.transform.SetParent(tempChipParent, worldPositionStays: true);
+
                     Vector3 risePos = captured.transform.position + new Vector3(0f, 10f, 0f);
 
                     Sequence seq = DOTween.Sequence();
@@ -785,7 +806,10 @@ public class BetManager : MonoBehaviour
                     seq.Append(captured.transform.DOMove(risePos, 0.25f).SetEase(Ease.OutQuad));
                     seq.AppendCallback(() =>
                     {
-                        captured.transform.DOMove(targetPos, 0.8f).SetEase(Ease.InOutQuad)
+                        // Re-sample target world position at the moment the arc starts,
+                        // so the chip flies to wherever the leaderboard row currently is.
+                        Vector3 currentTargetPos = (target != null) ? target.position : targetPos;
+                        captured.transform.DOMove(currentTargetPos, 0.8f).SetEase(Ease.InOutQuad)
                             .OnComplete(() =>
                             {
                                 if (isFirst && target != null)

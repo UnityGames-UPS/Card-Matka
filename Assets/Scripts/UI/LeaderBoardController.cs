@@ -108,13 +108,15 @@ public class LeaderBoardController : MonoBehaviour
 
         int len = name.Length;
 
-        // Names of 4 characters or fewer: nothing meaningful to hide
-        if (len <= 4) return name;
+        // Always show first 2 chars and last 2 chars with exactly 4 stars in between
+        // For short names, pad or overlap as needed to still produce first2 + **** + last2
 
-        // First 2 chars + stars for the middle + last 2 chars
-        int middleLen = len - 4; // characters between the first 2 and last 2
-        string stars = new string('*', middleLen);
-        return name.Substring(0, 2) + stars + name.Substring(len - 2, 2);
+        string first2 = len >= 2 ? name.Substring(0, 2) : name.PadRight(2, '*');
+        string last2 = len >= 4 ? name.Substring(len - 2, 2)
+                                 : len == 3 ? name.Substring(1, 2)  // "Joe" → last2 = "oe"
+                                 : name.PadLeft(2, '*');             // 1-char fallback
+
+        return first2 + "****" + last2;
     }
 
     private void PopulateRows(Leaderboards leaderboards)
@@ -144,8 +146,8 @@ public class LeaderBoardController : MonoBehaviour
                 Richest masked = new Richest
                 {
                     username = MaskUsername(richests[i].username),
-                    balance  = richests[i].balance,
-                    rank     = richests[i].rank
+                    balance = richests[i].balance,
+                    rank = richests[i].rank
                 };
 
                 RichestRows[i].SetRichestData(masked, i, avatar);
@@ -166,9 +168,9 @@ public class LeaderBoardController : MonoBehaviour
 
                 Winner masked = new Winner
                 {
-                    username   = MaskUsername(winners[i].username),
-                    totalWins  = winners[i].totalWins,
-                    rank       = winners[i].rank
+                    username = MaskUsername(winners[i].username),
+                    totalWins = winners[i].totalWins,
+                    rank = winners[i].rank
                 };
 
                 BiggestRows[i].SetWinnerData(masked, i, avatar);

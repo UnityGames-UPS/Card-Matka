@@ -526,7 +526,7 @@ public class UiManager : MonoBehaviour
 
     internal void DisconnectionPopup()
     {
-        if (!isExit)
+        if (!isExit || !socketManager.isConnected)
         {
             ClosePopup(ReconnectPopup_Object);
             OpenPopup(DisconnectPopup_Object);
@@ -1083,6 +1083,15 @@ public class UiManager : MonoBehaviour
         HighTimer_Object.SetActive(false);
         LowTimer_Object.SetActive(false);
         LockedTimer_Object.SetActive(true);
+
+        if (betManager.BetButtonPanel.activeInHierarchy)
+        {
+            betManager.SlideOutToLeft(betManager.BetButtonPanel);
+        }
+        if (betManager.RepeatBetPanel.activeInHierarchy)
+        {
+            betManager.SlideOutToLeft(betManager.RepeatBetPanel);
+        }
 
         betManager.isBettingOpen = false;
         animationManager.ShowBonusCards(bonusPosition, bonusMultiplier);

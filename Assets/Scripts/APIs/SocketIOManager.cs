@@ -70,7 +70,7 @@ public class SocketIOManager : MonoBehaviour
 
     private const int maxReconnectionAttempts = 6;
     private readonly TimeSpan reconnectionDelay = TimeSpan.FromSeconds(10);
-    private bool isConnected = false; //Back2 Start
+    internal bool isConnected = false; //Back2 Start
     private bool hasEverConnected = false;
     private const int MaxReconnectAttempts = 5;
     private const float ReconnectDelaySeconds = 2f;
@@ -273,7 +273,7 @@ public class SocketIOManager : MonoBehaviour
     {
         Debug.LogWarning("⚠️ Disconnected from server.");
         isConnected = false;
-        if (!uiManager.isExit)
+        //if (!uiManager.isExit)
         {
             uiManager.DisconnectionPopup();
         }
@@ -351,7 +351,7 @@ public class SocketIOManager : MonoBehaviour
         Time.timeScale = 1f;
 
         // Mute audio when hidden, restore when visible
-        uiManager?.OnAppFocusChanged(focus);
+        uiManager.OnAppFocusChanged(focus);
 
         if (!focus)
         {
