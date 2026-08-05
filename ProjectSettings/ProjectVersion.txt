@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 m_EditorVersion: 6000.3.24f1
 m_EditorVersionWithRevision: 6000.3.24f1 (4e7b9b5b6244)
 =======
@@ -10,3 +11,7 @@ m_EditorVersion: 6000.0.63f1
 m_EditorVersionWithRevision: 6000.0.63f1 (9438f9b77a46)
 >>>>>>> 6b880f9 (B2B operation complete)
 >>>>>>> 2fc4e71 (B2B operation complete)
+=======
+m_EditorVersion: 6000.3.9f1
+m_EditorVersionWithRevision: 6000.3.9f1 (7a9955a4f2fa)
+>>>>>>> abdccf4 (version update)

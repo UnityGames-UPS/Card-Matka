@@ -137,6 +137,7 @@
     },
     "com.unity.burst": {
 <<<<<<< HEAD
+<<<<<<< HEAD
       "version": "1.8.30",
 =======
 <<<<<<< HEAD
@@ -145,6 +146,9 @@
       "version": "1.8.25",
 >>>>>>> 6b880f9 (B2B operation complete)
 >>>>>>> 2fc4e71 (B2B operation complete)
+=======
+      "version": "1.8.28",
+>>>>>>> abdccf4 (version update)
       "depth": 1,
       "source": "registry",
       "dependencies": {
