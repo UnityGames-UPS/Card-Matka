@@ -228,6 +228,10 @@ public class UiManager : MonoBehaviour
     private const string PREF_SOUND = "isSoundOn";
     private const string PREF_STARTUP = "showStartupPage";
 
+    private void Awake()
+    {
+        jsFunctCalls?.RegisterVisibilityListener(gameObject.name);
+    }
 
     private void Start()
     {
@@ -615,7 +619,7 @@ public class UiManager : MonoBehaviour
         isMusic = !isMusic;
         _tabMusicOn = isMusic;   // keep tab-restore tracker in sync
         Music_button.gameObject.GetComponent<Image>().sprite = isMusic ? MusicImage : MusicMuteImage;
-        audioController.MuteBackground(!isMusic);
+        if (!isForceMuted) audioController.MuteBackground(!isMusic);
         PlayerPrefs.SetInt(PREF_MUSIC, isMusic ? 1 : 0);
         PlayerPrefs.Save();
     }
@@ -626,28 +630,47 @@ public class UiManager : MonoBehaviour
         isSound = !isSound;
         _tabSoundOn = isSound;   // keep tab-restore tracker in sync
         Sound_button.gameObject.GetComponent<Image>().sprite = isSound ? SoundImage : SoundMuteImage;
-        audioController.MuteGame(!isSound);
+        if (!isForceMuted) audioController.MuteGame(!isSound);
         PlayerPrefs.SetInt(PREF_SOUND, isSound ? 1 : 0);
         PlayerPrefs.Save();
     }
 
-    internal void OnAppFocusChanged(bool hasFocus)
+    private bool isForceMuted = false;
+
+    // Focus-driven — called from BOTH OnFocusChanged (JS/WebGL path) and OnAppFocusChanged (native path).
+    internal void SetMuteAll(bool forceMute)
     {
         if (audioController == null) return;
+        if (forceMute == isForceMuted) return;
+        isForceMuted = forceMute;
 
-        if (!hasFocus)
+        if (forceMute)
         {
-            // Tab hidden: silence everything without changing the user's
-            // chosen state (isMusic / isSound stay untouched)
             audioController.MuteBackground(true);
             audioController.MuteGame(true);
         }
         else
         {
-            // Tab visible again: restore exactly what the user had set
+            // Restore exactly what the user had set — never a hardcoded unmute.
             audioController.MuteBackground(!_tabMusicOn);
             audioController.MuteGame(!_tabSoundOn);
         }
+    }
+
+    // WebGL/JS visibility path — the only signal guaranteed to fire inside an embedded ReactNativeWebView.
+    public void OnFocusChanged(string value)
+    {
+        bool focused = value == "1";
+        Debug.Log("UNITY FOCUS CHANGED: " + value + " (focused: " + focused + ")");
+        SetMuteAll(!focused);
+        socketManager?.HandleFocusChange(focused);
+    }
+
+    // Unity's native focus path — unreliable inside a WebView, but still fires for ordinary
+    // browser tab-switches and always fires in the Editor.
+    internal void OnAppFocusChanged(bool hasFocus)
+    {
+        SetMuteAll(!hasFocus);
     }
 
     private void UpdateInfoUI()

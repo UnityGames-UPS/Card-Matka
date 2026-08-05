@@ -238,6 +238,7 @@ public class SocketIOManager : MonoBehaviour
         gameSocket.On<string>("alert", OnSocketAlert);
         gameSocket.On<string>("AnotherDevice", OnSocketOtherDevice);
         gameSocket.On<string>("pong", OnPongReceived);
+        gameSocket.On<string>("balance:sync", OnBalanceSync);
         manager.Open();
     }
 
@@ -298,6 +299,16 @@ public class SocketIOManager : MonoBehaviour
 #endif
         }
     }
+    private void OnBalanceSync(string data)
+    {
+        BalanceSyncPayload syncPayload = JsonConvert.DeserializeObject<BalanceSyncPayload>(data);
+        if (syncPayload == null) return;
+
+        if (playerdata == null) playerdata = new Player();
+        playerdata.balance = syncPayload.balance;
+
+        uiManager.UpdateBalance(syncPayload.balance);
+    }
     private void OnListenTimeEvent(string data)
     {
         TimeRemaining = JsonConvert.DeserializeObject<Root>(data);
@@ -341,6 +352,9 @@ public class SocketIOManager : MonoBehaviour
     private bool isFocused = true;
     private Coroutine focusCheckCoroutine;
     private bool disconnectionShown = false;   // <- NEW
+    private float maxBackgroundTime = 60f;
+    private float focusLostTime = 0f;
+    private bool isBeingDestroyed = false;
 
     void OnApplicationFocus(bool focus)
     {
@@ -350,13 +364,23 @@ public class SocketIOManager : MonoBehaviour
         // Prevent browser from freezing the game loop via timeScale
         Time.timeScale = 1f;
 
-        // Mute audio when hidden, restore when visible
+        // Mute audio when hidden, restore when visible.
+        // NOTE: unreliable inside a WebView — the background-close timeout below is driven
+        // exclusively by the WebGL/JS OnFocusChanged path (see UiManager.OnFocusChanged ->
+        // HandleFocusChange), never from here.
         uiManager.OnAppFocusChanged(focus);
+    }
+
+    // WebGL/JS visibility path — the only signal trustworthy enough to gate closing the socket.
+    internal void HandleFocusChange(bool focus)
+    {
+        isFocused = focus;
 
         if (!focus)
         {
-            if (focusCheckCoroutine == null && !disconnectionShown)
-                focusCheckCoroutine = StartCoroutine(IsNotInFocus());
+            focusLostTime = Time.time;
+            if (focusCheckCoroutine == null && !disconnectionShown && !isBeingDestroyed)
+                focusCheckCoroutine = StartCoroutine(FocusTimeoutCheck());
         }
         else
         {
@@ -370,19 +394,36 @@ public class SocketIOManager : MonoBehaviour
         }
     }
 
-    IEnumerator IsNotInFocus()
+    private IEnumerator FocusTimeoutCheck()
     {
-        yield return new WaitForSeconds(120f); // 2 seconds, change as required
-
-        // If still not focused AND popup not shown
-        if (!isFocused && !disconnectionShown)
+        while (!isFocused && !disconnectionShown && !isBeingDestroyed)
         {
-            // disconnectionShown = true;  // Prevent future runs
-            uiManager.DisconnectionPopup();
-            Debug.Log("Disconnected: No Focus for 120 seconds");
+            if (Time.time - focusLostTime >= maxBackgroundTime)
+            {
+                Debug.LogWarning("[SOCKET] Background timeout — closing connection");
+                isConnected = false;
+                ResetPingRoutine();
+
+                if (manager != null)
+                {
+                    try { manager.Close(); }
+                    catch (Exception e) { Debug.LogWarning($"[SOCKET] Focus close error: {e.Message}"); }
+                }
+
+                uiManager.DisconnectionPopup();
+                focusCheckCoroutine = null;
+                yield break;
+            }
+
+            yield return new WaitForSecondsRealtime(1f);
         }
 
         focusCheckCoroutine = null;
+    }
+
+    private void OnDestroy()
+    {
+        isBeingDestroyed = true;
     }
 
     private void OnSocketOtherDevice(string data)
@@ -1178,6 +1219,12 @@ public class Player
 {
     public double balance { get; set; }
     public string username { get; set; }
+}
+
+[Serializable]
+public class BalanceSyncPayload
+{
+    public double balance;
 }
 
 [Serializable]
